@@ -43,8 +43,28 @@ Commit to local git.
 
 If working tree was already clean in Step 1, skip this step.
 
-### Step 4 — Push to Origin
+### Step 4 — Verify Build + Tests
+
+Run before any push:
+
+```bash
+npm run typecheck && npm run test:run && npm run build
+```
+
+If anything fails, stop and surface the failure to the user. Do not push broken state.
+
+### Step 5 — Human UI Testing (when UI changed)
+
+If this session touched anything in `src/shell/` (UI-visible), pause and tell the user:
+
+> "Ready for phone testing before push. Start the dev server with `npm run dev`, hit the Network URL from your phone, and confirm [list specific things changed this session]. Reply 'looks good' to proceed with push, or describe what's wrong."
+
+Wait for user confirmation. Do not push until the user has tested and approved.
+
+For pure `src/core/` or docs/config-only sessions, skip this step — Step 4 verification is sufficient.
+
+### Step 6 — Push to Origin
 
 Push all local commits to origin.
-Note: this triggers a permission prompt — wait for confirmation before pushing.
+This triggers a permission prompt — wait for confirmation.
 Use `git push -u origin main` if the upstream tracking branch is not yet set.
