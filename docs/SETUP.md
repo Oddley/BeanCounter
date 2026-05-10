@@ -43,6 +43,16 @@ Expected output: `v22.x.x` for Node, `10.x.x` for npm (numbers may be slightly h
 
 If `node --version` says "not recognized" after restart, the PATH didn't update. Try logging out and back in, or restart Windows.
 
+### If `npm --version` errors with "running scripts is disabled"
+
+PowerShell's default execution policy blocks `.ps1` scripts. `npm` on Windows ships as a PowerShell wrapper, so it gets blocked. This is a one-time fix:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+Confirm with `Y`. No admin needed — `-Scope CurrentUser` keeps it per-account. `RemoteSigned` is the standard developer policy: local scripts run, downloaded scripts must be signed. Retry `npm --version` after this.
+
 ---
 
 ## Step 2 — Confirm Git

@@ -1,0 +1,62 @@
+:root {
+  color-scheme: dark;
+  --color-bg: #0a0a0a;
+  --color-fg: #e8e8e8;
+  --color-fg-muted: #a0a0a0;
+  --color-accent: #f5b400;
+  --color-border: #2a2a2a;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius: 0.5rem;
+  --touch-target-min: 44px;
+
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--color-fg);
+  background-color: var(--color-bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
+}
+
+main {
+  padding: var(--space-4);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 var(--space-4) 0;
+  font-weight: 600;
+}
+
+button {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  font: inherit;
+}
