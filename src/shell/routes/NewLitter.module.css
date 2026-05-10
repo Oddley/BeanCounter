@@ -30,8 +30,27 @@
   text-align: center;
 }
 
+.pinRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target-min);
+  padding: var(--space-3) 0;
+  margin-top: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox {
+  width: 1.5rem;
+  height: 1.5rem;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .submit {
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
 }
 
 .submit > * {

@@ -3,21 +3,29 @@ import { useNavigate } from 'react-router-dom'
 import { AppBar, Button, Input } from '../components'
 import { validateLitterName } from '../../core/litter'
 import { validateKittenName, defaultKittenName } from '../../core/kitten'
-import { persistNewLitter } from '../db'
+import { persistNewLitter, setStickyLitterById } from '../db'
 import styles from './NewLitter.module.css'
 
 const MAX_KITTEN_COUNT = 12
 
+function todayMMDD(): string {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${mm}-${dd}`
+}
+
 export function NewLitter() {
   const navigate = useNavigate()
-  const [name, setName] = useState('')
+  const [name, setName] = useState(todayMMDD)
   const [count, setCount] = useState(4)
   const [kittenNames, setKittenNames] = useState<string[]>(['', '', '', ''])
+  const [pinAsDefault, setPinAsDefault] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
   const adjustCount = (next: number) => {
-    const clamped = Math.max(0, Math.min(MAX_KITTEN_COUNT, next))
+    const clamped = Math.max(1, Math.min(MAX_KITTEN_COUNT, next))
     setCount(clamped)
     setKittenNames((current) => {
       const copy = [...current]
@@ -56,6 +64,9 @@ export function NewLitter() {
         name,
         kittens: kittenNames.map((displayName) => ({ displayName })),
       })
+      if (pinAsDefault) {
+        await setStickyLitterById(result.litter.id)
+      }
       navigate(`/litters/${result.litter.id}`)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Could not save')
@@ -87,7 +98,7 @@ export function NewLitter() {
                 type="button"
                 variant="secondary"
                 onClick={() => adjustCount(count - 1)}
-                disabled={count <= 0}
+                disabled={count <= 1}
                 aria-label="Decrease"
               >
                 −
@@ -114,6 +125,16 @@ export function NewLitter() {
               onChange={(e) => updateKittenName(i, e.target.value)}
             />
           ))}
+
+          <label className={styles.pinRow}>
+            <input
+              type="checkbox"
+              checked={pinAsDefault}
+              onChange={(e) => setPinAsDefault(e.target.checked)}
+              className={styles.checkbox}
+            />
+            <span>Pin as default litter</span>
+          </label>
 
           {submitError !== '' && (
             <div className={styles.error} role="alert">
