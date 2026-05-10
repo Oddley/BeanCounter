@@ -125,3 +125,21 @@ export async function clearStickyLitterById(): Promise<void> {
   const next = clearStickyLitter(current)
   await db.settings.put({ ...next, id: SETTINGS_SINGLETON_ID })
 }
+
+export async function wipeAllData(): Promise<void> {
+  await db.transaction(
+    'rw',
+    db.litters,
+    db.kittens,
+    db.settings,
+    async () => {
+      await db.litters.clear()
+      await db.kittens.clear()
+      await db.settings.clear()
+      await db.settings.add({
+        ...NullAppSettings,
+        id: SETTINGS_SINGLETON_ID,
+      })
+    },
+  )
+}

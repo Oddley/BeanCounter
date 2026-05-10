@@ -27,6 +27,7 @@ export {
   renameKittenById,
   setStickyLitterById,
   clearStickyLitterById,
+  wipeAllData,
   type NewLitterInput,
   type NewLitterResult,
 } from './mutations'
