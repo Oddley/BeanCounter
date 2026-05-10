@@ -1,0 +1,44 @@
+.button {
+  min-height: var(--touch-target-min);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--color-accent);
+  color: #0a0a0a;
+  border-color: var(--color-accent);
+}
+
+.primary:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+
+.secondary {
+  background: transparent;
+  color: var(--color-fg);
+}
+
+.secondary:active:not(:disabled) {
+  background: var(--color-border);
+}
+
+.danger {
+  background: transparent;
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
+.danger:active:not(:disabled) {
+  background: rgba(255, 107, 107, 0.15);
+}

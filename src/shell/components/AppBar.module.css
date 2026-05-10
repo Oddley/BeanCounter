@@ -1,0 +1,45 @@
+.bar {
+  display: grid;
+  grid-template-columns: var(--touch-target-min) 1fr var(--touch-target-min);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target-min);
+}
+
+.title {
+  font-size: 1.1rem;
+  margin: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  font-size: 2rem;
+  color: var(--color-fg);
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+
+.back:active {
+  background: var(--color-border);
+}
