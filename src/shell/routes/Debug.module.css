@@ -1,0 +1,14 @@
+.main {
+  padding: var(--space-2);
+}
+
+.pre {
+  font-family: ui-monospace, 'Cascadia Code', 'Menlo', monospace;
+  font-size: 0.8rem;
+  background: #161616;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
