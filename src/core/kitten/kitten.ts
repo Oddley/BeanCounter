@@ -8,12 +8,14 @@ export function createKitten(input: {
   id: string
   litterId: string
   displayName: string
+  order: number
 }): Kitten {
   return {
     id: input.id,
     litterId: input.litterId,
     displayName: input.displayName.trim(),
     active: true,
+    order: input.order,
   }
 }
 
@@ -46,4 +48,36 @@ export function validateKittenName(name: string): KittenValidationResult {
 
 export function defaultKittenName(index: number): string {
   return `Kitten ${index}`
+}
+
+export function reassignOrders(orderedKittens: readonly Kitten[]): Kitten[] {
+  return orderedKittens.map((k, i) => ({ ...k, order: i }))
+}
+
+export function moveKittenUp(
+  kittens: readonly Kitten[],
+  index: number,
+): Kitten[] {
+  if (index <= 0 || index >= kittens.length) return [...kittens]
+  const copy = [...kittens]
+  const prev = copy[index - 1]
+  const cur = copy[index]
+  if (prev === undefined || cur === undefined) return [...kittens]
+  copy[index - 1] = cur
+  copy[index] = prev
+  return reassignOrders(copy)
+}
+
+export function moveKittenDown(
+  kittens: readonly Kitten[],
+  index: number,
+): Kitten[] {
+  if (index < 0 || index >= kittens.length - 1) return [...kittens]
+  const copy = [...kittens]
+  const cur = copy[index]
+  const next = copy[index + 1]
+  if (cur === undefined || next === undefined) return [...kittens]
+  copy[index] = next
+  copy[index + 1] = cur
+  return reassignOrders(copy)
 }

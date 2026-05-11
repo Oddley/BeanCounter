@@ -3,6 +3,7 @@ export interface Kitten {
   readonly displayName: string
   readonly active: boolean
   readonly litterId: string
+  readonly order: number
 }
 
 export const NullKitten: Kitten = Object.freeze({
@@ -10,6 +11,7 @@ export const NullKitten: Kitten = Object.freeze({
   displayName: 'Unknown',
   active: false,
   litterId: '',
+  order: 0,
 })
 
 export interface KittenValidationResult {

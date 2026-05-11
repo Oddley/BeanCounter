@@ -7,4 +7,7 @@ export {
   renameKitten,
   validateKittenName,
   defaultKittenName,
+  reassignOrders,
+  moveKittenUp,
+  moveKittenDown,
 } from './kitten'
