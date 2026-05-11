@@ -61,3 +61,36 @@ return kitten.displayName
 - `throw` on absence inside core (let the shell decide how to handle truly unexpected states)
 - Optional properties (`kitten?: Kitten`) on core function signatures — use the Null Object instead
 - Overloaded signatures that return `T | null` — return `T` where `NullT` is a valid `T`
+
+## Null Object ≠ Loading State
+
+**Null Objects represent absence in the data model. They do NOT represent async-loading or "not-yet-fetched" states.** Conflating the two causes silent bugs: a consumer reads `NullX` and proceeds as if the answer is "no X exists" when the real answer is "X is still loading."
+
+### Pattern: Loading-aware shell hooks
+
+When a shell hook wraps an async query (e.g., `useLiveQuery` from `dexie-react-hooks`), return `undefined` while the query is pending, and the typed result (which may be a Null Object) once it resolves:
+
+```typescript
+// ❌ conflates loading with absent — caller can't tell which is which
+export function useSettings(): AppSettings {
+  const record = useLiveQuery(() => db.settings.get('singleton'))
+  return record ?? NullAppSettings  // BUG: NullAppSettings on first render
+}
+
+// ✅ caller can distinguish
+export function useSettings(): AppSettings | undefined {
+  return useLiveQuery(() => db.settings.get('singleton'))
+}
+
+// caller renders nothing while loading, decides once loaded
+function Home() {
+  const settings = useSettings()
+  if (settings === undefined) return null
+  if (hasStickyLitter(settings)) return <Navigate to={...} />
+  return <Navigate to="/litters" />
+}
+```
+
+**Rule:** Null Object fallback is fine for hooks whose consumers don't care about the loading distinction (e.g., display-only consumers). For hooks whose consumers make routing or write decisions, return `T | undefined` and handle the loading branch explicitly.
+
+This is a shell-layer concern. Core remains pure — core functions accept and return Null Objects freely; they never see "loading" because core has no async.
