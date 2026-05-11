@@ -21,23 +21,19 @@ import {
 } from '../../core/session'
 import { type Kitten } from '../../core/kitten'
 import { type WeightEntry, validateGrams } from '../../core/weight'
+import { isSameLocalDay } from '../../core/time'
 import { useAutosave } from '../hooks'
 import styles from './FeedingSession.module.css'
 
 function formatClockTime(millis: number, now: number): string {
-  const target = new Date(millis)
-  const today = new Date(now)
-  const sameDay =
-    target.getFullYear() === today.getFullYear() &&
-    target.getMonth() === today.getMonth() &&
-    target.getDate() === today.getDate()
-  if (sameDay) {
-    return target.toLocaleTimeString(undefined, {
+  if (isSameLocalDay(millis, now)) {
+    return new Date(millis).toLocaleTimeString(undefined, {
       hour: 'numeric',
       minute: '2-digit',
     })
   }
-  const sameYear = target.getFullYear() === today.getFullYear()
+  const target = new Date(millis)
+  const sameYear = target.getFullYear() === new Date(now).getFullYear()
   return target.toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
