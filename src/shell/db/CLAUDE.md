@@ -13,17 +13,23 @@ Dexie persistence layer. Schema definitions, typed table access, live queries, a
 
 ```ts
 {
-  litters:  'id'              // pk: id
-  kittens:  'id, litterId'    // pk: id; index: litterId for "kittens in litter"
-  settings: 'id'              // singleton: id always 'singleton'
+  litters:         'id'                              // pk: id
+  kittens:         'id, litterId'                    // pk: id; index: litterId
+  settings:        'id'                              // singleton: id always 'singleton'
+  feedingSessions: 'id, litterId'                    // pk: id; index: litterId
+  weightEntries:   'id, sessionId, kittenId'         // pk: composed `${sessionId}:${kittenId}`
 }
 ```
 
-Indexed stores have not changed between v1 and v2. `active` is not indexed — IndexedDB has flaky cross-browser behavior with boolean indexes. Active filtering happens in JS after the indexed `litterId` lookup. At ~5–10 kittens per litter the cost is trivial. `order` is also not indexed; sort happens in JS post-fetch.
+Boolean fields (`active`, `completed`) are not indexed — IndexedDB has flaky cross-browser behavior with boolean indexes. Filtering happens in JS after the indexed lookup. At MVP scale the cost is trivial. `order` and `lastUpdatedAt` are also not indexed; sort happens in JS post-fetch.
 
 ## Migrations
 
-- **v1 → v2**: Backfill `order: number` on every existing kitten record. For each litter, kittens are sorted by id (stable, deterministic) and assigned sequential orders 0..n-1. Migration is idempotent and side-effect-free on already-v2 data.
+- **v1 → v2**: Backfill `order: number` on every existing kitten record. For each litter, kittens are sorted by id (stable, deterministic) and assigned sequential orders 0..n-1.
+- **v2 → v3**: Add `feedingSessions` and `weightEntries` tables. No data migration needed — both tables start empty.
+- **v3 → v4**: Add `recordedAt: number` field to existing `feedingSessions` rows. Default `0` (= "no user override; fall back to createdAt").
+
+Migrations are idempotent and side-effect-free on already-current data.
 
 ## Conventions
 

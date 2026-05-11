@@ -2,6 +2,8 @@ import Dexie, { type Table, type Transaction } from 'dexie'
 import { type Litter } from '../../core/litter'
 import { type Kitten } from '../../core/kitten'
 import { type AppSettings, NullAppSettings } from '../../core/settings'
+import { type FeedingSession } from '../../core/session'
+import { type WeightEntry } from '../../core/weight'
 
 export interface SettingsRecord extends AppSettings {
   readonly id: 'singleton'
@@ -20,6 +22,8 @@ export class BeanCounterDB extends Dexie {
   litters!: Table<Litter, string>
   kittens!: Table<Kitten, string>
   settings!: Table<SettingsRecord, 'singleton'>
+  feedingSessions!: Table<FeedingSession, string>
+  weightEntries!: Table<WeightEntry, string>
 
   constructor() {
     super('beancounter')
@@ -38,9 +42,45 @@ export class BeanCounterDB extends Dexie {
       })
       .upgrade(backfillKittenOrder)
 
+    this.version(3).stores({
+      litters: 'id',
+      kittens: 'id, litterId',
+      settings: 'id',
+      feedingSessions: 'id, litterId',
+      weightEntries: 'id, sessionId, kittenId',
+    })
+
+    this.version(4)
+      .stores({
+        litters: 'id',
+        kittens: 'id, litterId',
+        settings: 'id',
+        feedingSessions: 'id, litterId',
+        weightEntries: 'id, sessionId, kittenId',
+      })
+      .upgrade(backfillSessionRecordedAt)
+
     this.on('populate', () => {
       this.settings.add({ ...NullAppSettings, id: SETTINGS_SINGLETON_ID })
     })
+  }
+}
+
+async function backfillSessionRecordedAt(tx: Transaction): Promise<void> {
+  const sessions = (await tx
+    .table('feedingSessions')
+    .toArray()) as Array<FeedingSession & { recordedAt?: number }>
+  const updated: FeedingSession[] = sessions.map((s) => ({
+    id: s.id,
+    litterId: s.litterId,
+    createdAt: s.createdAt,
+    lastUpdatedAt: s.lastUpdatedAt,
+    recordedAt: s.recordedAt ?? 0,
+    completed: s.completed,
+    lockAcquired: s.lockAcquired,
+  }))
+  if (updated.length > 0) {
+    await tx.table('feedingSessions').bulkPut(updated)
   }
 }
 

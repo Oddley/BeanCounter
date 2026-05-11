@@ -14,6 +14,12 @@ export {
   useArchivedKittens,
   useAllKittens,
   useSettings,
+  useOpenSessionForLitter,
+  useSession,
+  useWeightEntriesForSession,
+  useWeightForKittenInSession,
+  useAllSessions,
+  useAllWeightEntries,
 } from './queries'
 
 export {
@@ -28,6 +34,13 @@ export {
   setStickyLitterById,
   clearStickyLitterById,
   persistKittenOrder,
+  ensureOpenSessionForLitter,
+  ensureOpenSessionWithRecordedAt,
+  touchSessionById,
+  completeSessionById,
+  setSessionRecordedAtById,
+  clearSessionRecordedAtById,
+  persistWeightEntry,
   wipeAllData,
   type NewLitterInput,
   type NewLitterResult,

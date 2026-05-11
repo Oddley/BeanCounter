@@ -21,6 +21,18 @@ import {
   clearStickyLitter,
   NullAppSettings,
 } from '../../core/settings'
+import {
+  createSession,
+  touchSession,
+  completeSession,
+  setRecordedAt,
+  clearRecordedAt,
+  type FeedingSession,
+} from '../../core/session'
+import {
+  createWeightEntry,
+  type WeightEntry,
+} from '../../core/weight'
 import { newId } from '../../core/ids'
 import { db, SETTINGS_SINGLETON_ID, type SettingsRecord } from './dexie'
 
@@ -148,15 +160,114 @@ export async function persistKittenOrder(
   await db.kittens.bulkPut(reassigned)
 }
 
+export async function ensureOpenSessionForLitter(
+  litterId: string,
+  now: number,
+): Promise<FeedingSession> {
+  const all = await db.feedingSessions
+    .where('litterId')
+    .equals(litterId)
+    .toArray()
+  const existing = all.find((s) => !s.completed)
+  if (existing) return existing
+
+  const session = createSession({
+    id: newId(),
+    litterId,
+    createdAt: now,
+  })
+  await db.feedingSessions.add(session)
+  return session
+}
+
+export async function touchSessionById(
+  sessionId: string,
+  now: number,
+): Promise<void> {
+  const session = await db.feedingSessions.get(sessionId)
+  if (!session) return
+  await db.feedingSessions.put(touchSession(session, now))
+}
+
+export async function completeSessionById(sessionId: string): Promise<void> {
+  const session = await db.feedingSessions.get(sessionId)
+  if (!session) return
+  await db.feedingSessions.put(completeSession(session))
+}
+
+export async function setSessionRecordedAtById(
+  sessionId: string,
+  time: number,
+): Promise<void> {
+  const session = await db.feedingSessions.get(sessionId)
+  if (!session) return
+  await db.feedingSessions.put(setRecordedAt(session, time))
+}
+
+export async function clearSessionRecordedAtById(
+  sessionId: string,
+): Promise<void> {
+  const session = await db.feedingSessions.get(sessionId)
+  if (!session) return
+  await db.feedingSessions.put(clearRecordedAt(session))
+}
+
+export async function ensureOpenSessionWithRecordedAt(
+  litterId: string,
+  now: number,
+  recordedAt: number,
+): Promise<FeedingSession> {
+  const all = await db.feedingSessions
+    .where('litterId')
+    .equals(litterId)
+    .toArray()
+  const existing = all.find((s) => !s.completed)
+  if (existing) {
+    if (recordedAt > 0 && existing.recordedAt !== recordedAt) {
+      const updated = setRecordedAt(existing, recordedAt)
+      await db.feedingSessions.put(updated)
+      return updated
+    }
+    return existing
+  }
+  const base = createSession({ id: newId(), litterId, createdAt: now })
+  const session = recordedAt > 0 ? setRecordedAt(base, recordedAt) : base
+  await db.feedingSessions.add(session)
+  return session
+}
+
+export async function persistWeightEntry(input: {
+  sessionId: string
+  kittenId: string
+  grams: number
+  now: number
+}): Promise<WeightEntry> {
+  const entry = createWeightEntry({
+    sessionId: input.sessionId,
+    kittenId: input.kittenId,
+    grams: input.grams,
+    timestamp: input.now,
+    clientWriteId: newId(),
+  })
+  await db.transaction('rw', db.weightEntries, db.feedingSessions, async () => {
+    await db.weightEntries.put(entry)
+    const session = await db.feedingSessions.get(input.sessionId)
+    if (session) {
+      await db.feedingSessions.put(touchSession(session, input.now))
+    }
+  })
+  return entry
+}
+
 export async function wipeAllData(): Promise<void> {
   await db.transaction(
     'rw',
-    db.litters,
-    db.kittens,
-    db.settings,
+    [db.litters, db.kittens, db.settings, db.feedingSessions, db.weightEntries],
     async () => {
       await db.litters.clear()
       await db.kittens.clear()
+      await db.feedingSessions.clear()
+      await db.weightEntries.clear()
       await db.settings.clear()
       await db.settings.add({
         ...NullAppSettings,
