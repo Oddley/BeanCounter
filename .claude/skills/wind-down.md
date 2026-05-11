@@ -68,3 +68,5 @@ For pure `src/core/` or docs/config-only sessions, skip this step — Step 4 ver
 Push all local commits to origin.
 This triggers a permission prompt — wait for confirmation.
 Use `git push -u origin main` if the upstream tracking branch is not yet set.
+
+**Run `git push` as a standalone Bash call. Never chain it with other commands** (no `&&`, `;`, or `|`). Chaining bundles the push into a compound command string that's awkward for the permission system and obscures the prompt. Run any verify/status/log commands first as their own call, then push as its own call.
