@@ -13,8 +13,12 @@
   word-break: break-all;
 }
 
-.danger {
+.seed {
   margin-top: var(--space-6);
   padding-top: var(--space-4);
   border-top: 1px dashed var(--color-border);
+}
+
+.danger {
+  margin-top: var(--space-3);
 }
