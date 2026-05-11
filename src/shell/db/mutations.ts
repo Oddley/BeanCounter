@@ -12,6 +12,7 @@ import {
   activateKitten,
   renameKitten,
   defaultKittenName,
+  reassignOrders,
   type Kitten,
   NullKitten,
 } from '../../core/kitten'
@@ -43,6 +44,7 @@ export async function persistNewLitter(
       id: newId(),
       litterId,
       displayName: k.displayName.trim() || defaultKittenName(i + 1),
+      order: i,
     }),
   )
 
@@ -79,10 +81,16 @@ export async function persistNewKitten(input: {
   litterId: string
   displayName: string
 }): Promise<Kitten> {
+  const siblings = await db.kittens
+    .where('litterId')
+    .equals(input.litterId)
+    .toArray()
+  const maxOrder = siblings.reduce((m, k) => Math.max(m, k.order), -1)
   const kitten = createKitten({
     id: newId(),
     litterId: input.litterId,
     displayName: input.displayName,
+    order: maxOrder + 1,
   })
   await db.kittens.add(kitten)
   return kitten
@@ -97,7 +105,14 @@ export async function archiveKittenById(id: string): Promise<void> {
 export async function activateKittenById(id: string): Promise<void> {
   const found = (await db.kittens.get(id)) ?? NullKitten
   if (!found.id) return
-  await db.kittens.put(activateKitten(found))
+  const siblings = await db.kittens
+    .where('litterId')
+    .equals(found.litterId)
+    .toArray()
+  const maxActiveOrder = siblings
+    .filter((k) => k.active && k.id !== found.id)
+    .reduce((m, k) => Math.max(m, k.order), -1)
+  await db.kittens.put({ ...activateKitten(found), order: maxActiveOrder + 1 })
 }
 
 export async function renameKittenById(
@@ -124,6 +139,13 @@ export async function clearStickyLitterById(): Promise<void> {
   const current = await readSettings()
   const next = clearStickyLitter(current)
   await db.settings.put({ ...next, id: SETTINGS_SINGLETON_ID })
+}
+
+export async function persistKittenOrder(
+  orderedKittens: readonly Kitten[],
+): Promise<void> {
+  const reassigned = reassignOrders(orderedKittens)
+  await db.kittens.bulkPut(reassigned)
 }
 
 export async function wipeAllData(): Promise<void> {

@@ -9,7 +9,7 @@ Dexie persistence layer. Schema definitions, typed table access, live queries, a
 - `mutations.ts` — write helpers that compose core constructors with Dexie persistence (`persistNewLitter`, `archiveLitterById`, `setStickyLitterById`, etc.)
 - `index.ts` — barrel exporting `db`, hooks, and mutations
 
-## Schema (v1)
+## Schema
 
 ```ts
 {
@@ -19,7 +19,11 @@ Dexie persistence layer. Schema definitions, typed table access, live queries, a
 }
 ```
 
-`active` is not indexed — IndexedDB has flaky cross-browser behavior with boolean indexes. Active filtering happens in JS after the indexed `litterId` lookup. At ~5–10 kittens per litter the cost is trivial.
+Indexed stores have not changed between v1 and v2. `active` is not indexed — IndexedDB has flaky cross-browser behavior with boolean indexes. Active filtering happens in JS after the indexed `litterId` lookup. At ~5–10 kittens per litter the cost is trivial. `order` is also not indexed; sort happens in JS post-fetch.
+
+## Migrations
+
+- **v1 → v2**: Backfill `order: number` on every existing kitten record. For each litter, kittens are sorted by id (stable, deterministic) and assigned sequential orders 0..n-1. Migration is idempotent and side-effect-free on already-v2 data.
 
 ## Conventions
 
@@ -27,6 +31,25 @@ Dexie persistence layer. Schema definitions, typed table access, live queries, a
 - All mutation helpers compose pure core functions for entity construction; this file owns the side effect of writing.
 - Reads use `useLiveQuery` so components re-render automatically when underlying data changes.
 - No business logic here — branching on domain state goes to `core/`.
+
+## Loading state — read this before adding a new `use*` hook
+
+`useLiveQuery` returns `undefined` while the underlying query is pending. **All `use*` hooks in this file return `T | undefined`** (where `T` may be a domain type or array of domain types) to let callers distinguish loading from absent.
+
+This is deliberate per ADR-004. Falling back to a Null Object inside a hook conflates async loading with data-model absence, and the symptom — components making the wrong decision on first render before the query resolves — is the sticky-litter bug we already shipped and reverted.
+
+Caller pattern:
+
+```tsx
+function MyRoute() {
+  const settings = useSettings()
+  if (settings === undefined) return null  // or a skeleton
+  // settings is AppSettings here
+  if (hasStickyLitter(settings)) { ... }
+}
+```
+
+For consumers that genuinely don't care about loading (display-only, where rendering with the Null Object would be visually fine), use `?? NullX` at the consumer site, not inside the hook.
 
 ## Dependencies
 

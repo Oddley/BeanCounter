@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { type Litter, NullLitter } from '../../core/litter'
 import { type Kitten } from '../../core/kitten'
-import { type AppSettings, NullAppSettings } from '../../core/settings'
+import { type AppSettings } from '../../core/settings'
 import { db, SETTINGS_SINGLETON_ID } from './dexie'
 
 export function useActiveLitters(): Litter[] | undefined {
@@ -25,32 +25,21 @@ export function useLitter(id: string): Litter | undefined {
 }
 
 export function useActiveKittens(litterId: string): Kitten[] | undefined {
-  return useLiveQuery(
-    () =>
-      db.kittens
-        .where('litterId')
-        .equals(litterId)
-        .filter((k) => k.active)
-        .toArray(),
-    [litterId],
-  )
+  return useLiveQuery(async () => {
+    const all = await db.kittens.where('litterId').equals(litterId).toArray()
+    return all.filter((k) => k.active).sort((a, b) => a.order - b.order)
+  }, [litterId])
 }
 
 export function useArchivedKittens(litterId: string): Kitten[] | undefined {
-  return useLiveQuery(
-    () =>
-      db.kittens
-        .where('litterId')
-        .equals(litterId)
-        .filter((k) => !k.active)
-        .toArray(),
-    [litterId],
-  )
+  return useLiveQuery(async () => {
+    const all = await db.kittens.where('litterId').equals(litterId).toArray()
+    return all.filter((k) => !k.active).sort((a, b) => a.order - b.order)
+  }, [litterId])
 }
 
-export function useSettings(): AppSettings {
-  const record = useLiveQuery(() => db.settings.get(SETTINGS_SINGLETON_ID))
-  return record ?? NullAppSettings
+export function useSettings(): AppSettings | undefined {
+  return useLiveQuery(() => db.settings.get(SETTINGS_SINGLETON_ID))
 }
 
 export function useAllKittens(): Kitten[] | undefined {

@@ -27,6 +27,7 @@ export {
   renameKittenById,
   setStickyLitterById,
   clearStickyLitterById,
+  persistKittenOrder,
   wipeAllData,
   type NewLitterInput,
   type NewLitterResult,
