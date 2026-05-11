@@ -137,6 +137,16 @@ export function LitterDetail() {
         )}
 
         {!reorderMode && (
+          <section className={styles.section}>
+            <Link to={`/litters/${litter.id}/graph`} className={styles.primaryActionLink}>
+              <Button variant="secondary" className={styles.primaryActionButton}>
+                📈 Graph
+              </Button>
+            </Link>
+          </section>
+        )}
+
+        {!reorderMode && (
         <section className={styles.section}>
           {editingName ? (
             <div className={styles.editRow}>
