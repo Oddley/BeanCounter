@@ -1,10 +1,10 @@
 # Bean Counter
 
-> **Work in progress.** This project is in early development. Standards and architecture are established; implementation has not yet begun.
+> **Work in progress.** This project is in early development. Standards and architecture are established; implementation has begun but is not feature complete.
 
 A local-first progressive web app for foster caregivers to log kitten weights during feeding sessions.
 
-Designed for the hardest possible UX condition: one-handed, in the dark, half-asleep.
+Designed to specifically accomodate the unique state of a bottle baby kitten foster: one-handed, in the dark, half-asleep.
 
 ## What it does
 
