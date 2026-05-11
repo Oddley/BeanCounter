@@ -1,18 +1,29 @@
 import { useNavigate } from 'react-router-dom'
 import { AppBar, Button } from '../components'
-import { useAllLitters, useAllKittens, useSettings, wipeAllData } from '../db'
+import {
+  useAllLitters,
+  useAllKittens,
+  useAllSessions,
+  useAllWeightEntries,
+  useSettings,
+  wipeAllData,
+} from '../db'
 import styles from './Debug.module.css'
 
 export function Debug() {
   const navigate = useNavigate()
   const litters = useAllLitters() ?? []
   const kittens = useAllKittens() ?? []
+  const sessions = useAllSessions() ?? []
+  const weightEntries = useAllWeightEntries() ?? []
   const settings = useSettings()
 
   const dump = {
     settings,
     litters,
     kittens,
+    sessions,
+    weightEntries,
   }
 
   const handleWipe = async () => {

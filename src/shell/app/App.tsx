@@ -4,6 +4,7 @@ import {
   LitterList,
   LitterDetail,
   NewLitter,
+  FeedingSession,
   Debug,
   NotFound,
 } from '../routes'
@@ -13,6 +14,7 @@ const router = createBrowserRouter([
   { path: '/litters', element: <LitterList /> },
   { path: '/litters/new', element: <NewLitter /> },
   { path: '/litters/:id', element: <LitterDetail /> },
+  { path: '/litters/:litterId/feed', element: <FeedingSession /> },
   { path: '/debug', element: <Debug /> },
   { path: '*', element: <NotFound /> },
 ])

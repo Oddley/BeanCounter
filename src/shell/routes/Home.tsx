@@ -10,7 +10,9 @@ export function Home() {
   }
 
   if (hasStickyLitter(settings)) {
-    return <Navigate to={`/litters/${settings.stickyLitterId}`} replace />
+    return (
+      <Navigate to={`/litters/${settings.stickyLitterId}/feed`} replace />
+    )
   }
   return <Navigate to="/litters" replace />
 }

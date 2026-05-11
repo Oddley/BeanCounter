@@ -6,6 +6,7 @@ import {
   useActiveKittens,
   useArchivedKittens,
   useSettings,
+  useOpenSessionForLitter,
   archiveLitterById,
   activateLitterById,
   renameLitterById,
@@ -32,6 +33,7 @@ export function LitterDetail() {
   const activeKittens = useActiveKittens(id)
   const archivedKittens = useArchivedKittens(id)
   const settings = useSettings()
+  const openSession = useOpenSessionForLitter(id)
 
   const [showArchived, setShowArchived] = useState(false)
   const [editingName, setEditingName] = useState(false)
@@ -122,6 +124,18 @@ export function LitterDetail() {
     <>
       <AppBar title={litter.name} backTo="/litters" />
       <main className={styles.main}>
+        {!reorderMode && litter.active && (
+          <section className={styles.section}>
+            <Link to={`/litters/${litter.id}/feed`} className={styles.primaryActionLink}>
+              <Button className={styles.primaryActionButton}>
+                {openSession !== null && openSession !== undefined
+                  ? '▶ Resume weights'
+                  : '▶ Start weights'}
+              </Button>
+            </Link>
+          </section>
+        )}
+
         {!reorderMode && (
         <section className={styles.section}>
           {editingName ? (

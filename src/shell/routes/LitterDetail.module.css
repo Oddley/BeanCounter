@@ -53,3 +53,13 @@
   margin-top: var(--space-4);
   text-align: center;
 }
+
+.primaryActionLink {
+  display: block;
+  text-decoration: none;
+}
+
+.primaryActionButton {
+  width: 100%;
+  font-size: 1.1rem;
+}
