@@ -15,10 +15,15 @@ import {
   renameKittenById,
   setStickyLitterById,
   clearStickyLitterById,
+  persistKittenOrder,
 } from '../db'
 import { hasStickyLitter } from '../../core/settings'
 import { validateLitterName } from '../../core/litter'
-import { validateKittenName } from '../../core/kitten'
+import {
+  validateKittenName,
+  moveKittenUp,
+  moveKittenDown,
+} from '../../core/kitten'
 import styles from './LitterDetail.module.css'
 
 export function LitterDetail() {
@@ -35,6 +40,7 @@ export function LitterDetail() {
   const [newKittenName, setNewKittenName] = useState('')
   const [renameKittenId, setRenameKittenId] = useState('')
   const [renameKittenDraft, setRenameKittenDraft] = useState('')
+  const [reorderMode, setReorderMode] = useState(false)
 
   if (litter === undefined) {
     return (
@@ -60,7 +66,9 @@ export function LitterDetail() {
   }
 
   const isSticky =
-    hasStickyLitter(settings) && settings.stickyLitterId === litter.id
+    settings !== undefined &&
+    hasStickyLitter(settings) &&
+    settings.stickyLitterId === litter.id
 
   const startRenameLitter = () => {
     setDraftName(litter.name)
@@ -95,10 +103,26 @@ export function LitterDetail() {
     setRenameKittenDraft('')
   }
 
+  const moveUp = async (index: number) => {
+    if (activeKittens === undefined) return
+    const updated = moveKittenUp(activeKittens, index)
+    await persistKittenOrder(updated)
+  }
+
+  const moveDown = async (index: number) => {
+    if (activeKittens === undefined) return
+    const updated = moveKittenDown(activeKittens, index)
+    await persistKittenOrder(updated)
+  }
+
+  const canReorder =
+    activeKittens !== undefined && activeKittens.length >= 2
+
   return (
     <>
       <AppBar title={litter.name} backTo="/litters" />
       <main className={styles.main}>
+        {!reorderMode && (
         <section className={styles.section}>
           {editingName ? (
             <div className={styles.editRow}>
@@ -124,7 +148,9 @@ export function LitterDetail() {
             </Button>
           )}
         </section>
+        )}
 
+        {!reorderMode && (
         <section className={styles.section}>
           <Button
             variant={isSticky ? 'secondary' : 'primary'}
@@ -137,19 +163,31 @@ export function LitterDetail() {
             {isSticky ? '★ Pinned (tap to unpin)' : '☆ Pin as default'}
           </Button>
         </section>
+        )}
 
         <section className={styles.section}>
           <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>Kittens</h2>
-            <Button
-              variant="secondary"
-              onClick={() => setAddingKitten((v) => !v)}
-            >
-              {addingKitten ? 'Cancel' : '+ Add'}
-            </Button>
+            <h2 className={styles.sectionTitle}>
+              {reorderMode ? 'Reorder kittens' : 'Kittens'}
+            </h2>
+            {reorderMode ? (
+              <Button
+                variant="primary"
+                onClick={() => setReorderMode(false)}
+              >
+                Done
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() => setAddingKitten((v) => !v)}
+              >
+                {addingKitten ? 'Cancel' : '+ Add'}
+              </Button>
+            )}
           </div>
 
-          {addingKitten && (
+          {!reorderMode && addingKitten && (
             <div className={styles.editRow}>
               <Input
                 label="Kitten name"
@@ -167,9 +205,33 @@ export function LitterDetail() {
             <p className={styles.muted}>No active kittens.</p>
           ) : (
             <ul className={styles.list}>
-              {activeKittens.map((k) => (
+              {activeKittens.map((k, i) => (
                 <li key={k.id}>
-                  {renameKittenId === k.id ? (
+                  {reorderMode ? (
+                    <ListItem
+                      primary={k.displayName}
+                      trailing={
+                        <>
+                          <Button
+                            variant="secondary"
+                            onClick={() => moveUp(i)}
+                            disabled={i === 0}
+                            aria-label="Move up"
+                          >
+                            ▲
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => moveDown(i)}
+                            disabled={i === activeKittens.length - 1}
+                            aria-label="Move down"
+                          >
+                            ▼
+                          </Button>
+                        </>
+                      }
+                    />
+                  ) : renameKittenId === k.id ? (
                     <div className={styles.editRow}>
                       <Input
                         label="Kitten name"
@@ -214,8 +276,20 @@ export function LitterDetail() {
               ))}
             </ul>
           )}
+
+          {!reorderMode && canReorder && (
+            <div className={styles.reorderToggle}>
+              <Button
+                variant="secondary"
+                onClick={() => setReorderMode(true)}
+              >
+                Reorder kittens
+              </Button>
+            </div>
+          )}
         </section>
 
+        {!reorderMode && (
         <section className={styles.section}>
           <Button
             variant="secondary"
@@ -254,7 +328,9 @@ export function LitterDetail() {
               <p className={styles.muted}>No archived kittens.</p>
             )}
         </section>
+        )}
 
+        {!reorderMode && (
         <section className={styles.section}>
           {litter.active ? (
             <Button
@@ -272,6 +348,7 @@ export function LitterDetail() {
             </Button>
           )}
         </section>
+        )}
       </main>
     </>
   )

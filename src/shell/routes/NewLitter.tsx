@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppBar, Button, Input } from '../components'
 import { validateLitterName } from '../../core/litter'
@@ -17,7 +17,8 @@ function todayMMDD(): string {
 
 export function NewLitter() {
   const navigate = useNavigate()
-  const [name, setName] = useState(todayMMDD)
+  const todayDefault = useMemo(() => todayMMDD(), [])
+  const [name, setName] = useState('')
   const [count, setCount] = useState(4)
   const [kittenNames, setKittenNames] = useState<string[]>(['', '', '', ''])
   const [pinAsDefault, setPinAsDefault] = useState(true)
@@ -43,7 +44,8 @@ export function NewLitter() {
     })
   }
 
-  const litterNameValidation = validateLitterName(name)
+  const effectiveLitterName = name.trim() || todayDefault
+  const litterNameValidation = validateLitterName(effectiveLitterName)
 
   const kittenValidations = kittenNames.map((kn, i) =>
     validateKittenName(kn.trim() || defaultKittenName(i + 1)),
@@ -61,7 +63,7 @@ export function NewLitter() {
     setSubmitError('')
     try {
       const result = await persistNewLitter({
-        name,
+        name: effectiveLitterName,
         kittens: kittenNames.map((displayName) => ({ displayName })),
       })
       if (pinAsDefault) {
@@ -83,12 +85,12 @@ export function NewLitter() {
             label="Litter name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            placeholder={todayDefault}
             error={
               name.length > 0 && !litterNameValidation.valid
                 ? (litterNameValidation.errors[0] ?? '')
                 : ''
             }
-            autoFocus
           />
 
           <div className={styles.countRow}>

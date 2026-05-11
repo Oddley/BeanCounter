@@ -48,3 +48,8 @@
 .buttonRow > * {
   flex: 1;
 }
+
+.reorderToggle {
+  margin-top: var(--space-4);
+  text-align: center;
+}

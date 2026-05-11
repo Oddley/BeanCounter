@@ -25,6 +25,11 @@
   outline-offset: 1px;
 }
 
+.input::placeholder {
+  color: var(--color-fg-muted);
+  opacity: 1;
+}
+
 .invalid {
   border-color: #ff6b6b;
 }
