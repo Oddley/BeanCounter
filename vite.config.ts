@@ -24,6 +24,11 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // Allow `<lan-ip>.nip.io` hostnames so Google OAuth can use a
+    // public-TLD origin while still routing to our LAN dev server.
+    // (Google rejects raw IP origins; nip.io DNS-resolves any
+    // <ip>.nip.io hostname to that exact IP.)
+    allowedHosts: ['.nip.io'],
   },
   test: {
     environment: 'happy-dom',

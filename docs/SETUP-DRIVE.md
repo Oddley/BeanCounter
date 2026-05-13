@@ -50,11 +50,15 @@ You're in "testing" mode — only test users you added can sign in. That's fine 
 2. **Create Credentials → OAuth client ID**
 3. **Application type:** Web application
 4. **Name:** `Bean Counter web client` (or whatever)
-5. **Authorized JavaScript origins** — add ALL of these:
+5. **Authorized JavaScript origins** — add these:
    - `http://localhost:5173`
-   - `http://<your-local-IP>:5173` (find via `ipconfig` in PowerShell — the one your phone uses)
+   - `http://<your-local-IP>.nip.io:5173` — e.g. `http://192.168.86.25.nip.io:5173`. See note below.
    - When we deploy: the production URL too
 6. **Authorized redirect URIs** — leave empty (we use implicit flow, not redirect)
+
+> **Why `.nip.io`?** Google rejects raw LAN IP addresses as JavaScript origins ("must end with a public top-level domain"). `nip.io` is a free DNS service that resolves any `<ip>.nip.io` hostname to that exact IP. So `http://192.168.86.25.nip.io:5173` looks like a `.io` domain to Google but routes to your LAN dev server. The Vite config already allows `.nip.io` hostnames (`server.allowedHosts` in `vite.config.ts`).
+>
+> Your phone and PC both navigate to the nip.io URL (not the bare IP) when testing Drive-related features.
 7. **Create**
 8. A modal pops up with your **Client ID** (long string ending in `.apps.googleusercontent.com`). **Copy it.**
 
