@@ -1,14 +1,13 @@
-import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { SyncIndicator } from './SyncIndicator'
 import styles from './AppBar.module.css'
 
 export interface AppBarProps {
   readonly title: string
   readonly backTo?: string
-  readonly menu?: ReactNode
 }
 
-export function AppBar({ title, backTo, menu }: AppBarProps) {
+export function AppBar({ title, backTo }: AppBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -19,7 +18,9 @@ export function AppBar({ title, backTo, menu }: AppBarProps) {
         )}
       </div>
       <h1 className={styles.title}>{title}</h1>
-      <div className={styles.right}>{menu}</div>
+      <div className={styles.right}>
+        <SyncIndicator />
+      </div>
     </header>
   )
 }

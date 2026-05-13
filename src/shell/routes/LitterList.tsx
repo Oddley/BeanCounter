@@ -9,15 +9,9 @@ export function LitterList() {
   const active = useActiveLitters()
   const archived = useArchivedLitters()
 
-  const overflowMenu = (
-    <Link to="/debug" className={styles.menuLink} aria-label="Debug">
-      ⋯
-    </Link>
-  )
-
   return (
     <>
-      <AppBar title="Litters" menu={overflowMenu} />
+      <AppBar title="Litters" />
       <main className={styles.main}>
         <div className={styles.actions}>
           <Link to="/litters/new">

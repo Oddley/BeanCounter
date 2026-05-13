@@ -23,14 +23,3 @@
   text-align: center;
 }
 
-.menuLink {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target-min);
-  height: var(--touch-target-min);
-  font-size: 1.5rem;
-  color: var(--color-fg);
-  text-decoration: none;
-  border-radius: var(--radius);
-}
