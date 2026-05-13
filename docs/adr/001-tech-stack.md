@@ -18,6 +18,7 @@
 | Local DB | Dexie.js | latest | IndexedDB wrapper, typed, observable, offline-first |
 | PWA | vite-plugin-pwa + Workbox | latest | Service worker, offline caching, installability |
 | Charts | Recharts | latest | React-native SVG charts, TypeScript-first |
+| Cloud sync | Google Drive API + Google Identity Services | latest | File-level sync per [ADR-007](007-sync-architecture.md); `drive.file` scope |
 | Linting | ESLint + Prettier | latest | Standard TS config, enforced formatting |
 
 ## Constraints

@@ -10,7 +10,7 @@ The system replaces a shared Google Sheets workflow with a faster, interruption-
 - low cognitive overhead
 - reliable historical trend visualization
 
-Google Sheets is used as a synchronization backend, not a primary database.
+**Sync backend:** Google Drive (one `active.json` file for all active litters + immutable archive files per archived litter). See [ADR-007](docs/adr/007-sync-architecture.md). The original spec drafted Google Sheets here; Drive proved a better fit during Phase 3 wrap-up.
 
 ---
 
@@ -21,7 +21,7 @@ Google Sheets is used as a synchronization backend, not a primary database.
 - Session-based workflow: feeding sessions are the primary unit of interaction
 - Minimal friction UX: fastest path to data entry is the default experience
 - Human interpretation over automation: no AI health assessment or inference
-- Spreadsheet compatibility: Google Sheets is the durable shared state layer
+- Tiny trusted household: 1–3 caregivers sharing operational state, not realtime collaborative SaaS
 
 ---
 
@@ -41,11 +41,11 @@ Google Sheets is used as a synchronization backend, not a primary database.
 - Cached litter data
 - Session timeout tracking
 
-3. Sync Layer (Google Sheets)
-- Pull: full litter dataset
-- Push: buffered session updates
-- Append-only or idempotent writes
-- Offline-safe reconciliation
+3. Sync Layer (Google Drive — see [ADR-007](docs/adr/007-sync-architecture.md))
+- One `BeanCounter/active.json` blob holds all active litter state
+- Archived litters become immutable files in `BeanCounter/archive/`
+- Foreground-event-driven; per-entity last-write-wins merge
+- Conflict surfacing via sync status indicator
 
 ---
 
@@ -55,8 +55,8 @@ Google Sheets is used as a synchronization backend, not a primary database.
 - id
 - name
 - active (boolean)
-- sheet_tab_id
 - kittens[]
+- (Original spec listed `sheet_tab_id`; obsolete with Drive sync.)
 
 ### Kitten
 - id (stable internal ID)
@@ -112,10 +112,11 @@ Google Sheets is used as a synchronization backend, not a primary database.
 
 ## Sync Behavior
 
-- Offline-first
-- Buffered writes
-- Debounced + background + timeout flush
-- Idempotent writes via client_write_id
+- Offline-first; local Dexie is the source of truth between syncs
+- Foreground-event-driven: 60s debounce after edits, immediate on Finish-weights, immediate on litter-edit-exit, pull on foreground-return if >10min stale
+- Service worker keeps pushing while backgrounded only if edits are pending
+- Per-entity last-write-wins merge via `lastUpdatedAt`
+- See [ADR-007](docs/adr/007-sync-architecture.md) for full architecture
 
 ---
 

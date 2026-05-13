@@ -10,3 +10,4 @@ Decisions apply in order. Later ADRs refine earlier ones; they do not contradict
 | [ADR-004](004-nothing-is-something.md) | Nothing is Something (Null Object Pattern) | Accepted |
 | [ADR-005](005-documentation.md) | Documentation Standards | Accepted |
 | [ADR-006](006-git-workflow.md) | Git Workflow & Conventional Commits | Accepted |
+| [ADR-007](007-sync-architecture.md) | Sync Architecture (Google Drive) | Accepted |
