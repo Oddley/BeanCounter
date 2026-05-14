@@ -311,7 +311,7 @@ function KittenWeightRow({
   const validation = text === '' ? null : validateGrams(parsed)
   const isValid = validation !== null && validation.valid
 
-  useAutosave({
+  const { flush } = useAutosave({
     value: text,
     delayMs: 400,
     enabled: isValid,
@@ -346,6 +346,7 @@ function KittenWeightRow({
             setTouched(true)
             setText(e.target.value.replace(/[^\d]/g, ''))
           }}
+          onBlur={flush}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
