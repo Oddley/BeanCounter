@@ -49,14 +49,16 @@ export interface NewLitterResult {
 export async function persistNewLitter(
   input: NewLitterInput,
 ): Promise<NewLitterResult> {
+  const now = Date.now()
   const litterId = newId()
-  const litter = createLitter({ id: litterId, name: input.name })
+  const litter = createLitter({ id: litterId, name: input.name, now })
   const kittens = input.kittens.map((k, i) =>
     createKitten({
       id: newId(),
       litterId,
       displayName: k.displayName.trim() || defaultKittenName(i + 1),
       order: i,
+      now,
     }),
   )
 
@@ -71,13 +73,13 @@ export async function persistNewLitter(
 export async function archiveLitterById(id: string): Promise<void> {
   const found = (await db.litters.get(id)) ?? NullLitter
   if (!found.id) return
-  await db.litters.put(archiveLitter(found))
+  await db.litters.put(archiveLitter(found, Date.now()))
 }
 
 export async function activateLitterById(id: string): Promise<void> {
   const found = (await db.litters.get(id)) ?? NullLitter
   if (!found.id) return
-  await db.litters.put(activateLitter(found))
+  await db.litters.put(activateLitter(found, Date.now()))
 }
 
 export async function renameLitterById(
@@ -86,7 +88,7 @@ export async function renameLitterById(
 ): Promise<void> {
   const found = (await db.litters.get(id)) ?? NullLitter
   if (!found.id) return
-  await db.litters.put(renameLitter(found, newName))
+  await db.litters.put(renameLitter(found, newName, Date.now()))
 }
 
 export async function persistNewKitten(input: {
@@ -103,6 +105,7 @@ export async function persistNewKitten(input: {
     litterId: input.litterId,
     displayName: input.displayName,
     order: maxOrder + 1,
+    now: Date.now(),
   })
   await db.kittens.add(kitten)
   return kitten
@@ -111,7 +114,7 @@ export async function persistNewKitten(input: {
 export async function archiveKittenById(id: string): Promise<void> {
   const found = (await db.kittens.get(id)) ?? NullKitten
   if (!found.id) return
-  await db.kittens.put(archiveKitten(found))
+  await db.kittens.put(archiveKitten(found, Date.now()))
 }
 
 export async function activateKittenById(id: string): Promise<void> {
@@ -124,7 +127,8 @@ export async function activateKittenById(id: string): Promise<void> {
   const maxActiveOrder = siblings
     .filter((k) => k.active && k.id !== found.id)
     .reduce((m, k) => Math.max(m, k.order), -1)
-  await db.kittens.put({ ...activateKitten(found), order: maxActiveOrder + 1 })
+  const restored = activateKitten(found, Date.now())
+  await db.kittens.put({ ...restored, order: maxActiveOrder + 1 })
 }
 
 export async function renameKittenById(
@@ -133,7 +137,7 @@ export async function renameKittenById(
 ): Promise<void> {
   const found = (await db.kittens.get(id)) ?? NullKitten
   if (!found.id) return
-  await db.kittens.put(renameKitten(found, newDisplayName))
+  await db.kittens.put(renameKitten(found, newDisplayName, Date.now()))
 }
 
 async function readSettings(): Promise<SettingsRecord> {
@@ -143,20 +147,24 @@ async function readSettings(): Promise<SettingsRecord> {
 
 export async function setStickyLitterById(litterId: string): Promise<void> {
   const current = await readSettings()
-  const next = setStickyLitter(current, litterId)
+  const next = setStickyLitter(current, litterId, Date.now())
   await db.settings.put({ ...next, id: SETTINGS_SINGLETON_ID })
 }
 
 export async function clearStickyLitterById(): Promise<void> {
   const current = await readSettings()
-  const next = clearStickyLitter(current)
+  const next = clearStickyLitter(current, Date.now())
   await db.settings.put({ ...next, id: SETTINGS_SINGLETON_ID })
 }
 
 export async function persistKittenOrder(
   orderedKittens: readonly Kitten[],
 ): Promise<void> {
-  const reassigned = reassignOrders(orderedKittens)
+  const now = Date.now()
+  const reassigned = reassignOrders(orderedKittens).map((k) => ({
+    ...k,
+    lastUpdatedAt: now,
+  }))
   await db.kittens.bulkPut(reassigned)
 }
 

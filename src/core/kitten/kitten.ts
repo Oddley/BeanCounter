@@ -9,6 +9,7 @@ export function createKitten(input: {
   litterId: string
   displayName: string
   order: number
+  now: number
 }): Kitten {
   return {
     id: input.id,
@@ -16,19 +17,28 @@ export function createKitten(input: {
     displayName: input.displayName.trim(),
     active: true,
     order: input.order,
+    lastUpdatedAt: input.now,
   }
 }
 
-export function archiveKitten(kitten: Kitten): Kitten {
-  return { ...kitten, active: false }
+export function archiveKitten(kitten: Kitten, now: number): Kitten {
+  return { ...kitten, active: false, lastUpdatedAt: now }
 }
 
-export function activateKitten(kitten: Kitten): Kitten {
-  return { ...kitten, active: true }
+export function activateKitten(kitten: Kitten, now: number): Kitten {
+  return { ...kitten, active: true, lastUpdatedAt: now }
 }
 
-export function renameKitten(kitten: Kitten, newDisplayName: string): Kitten {
-  return { ...kitten, displayName: newDisplayName.trim() }
+export function renameKitten(
+  kitten: Kitten,
+  newDisplayName: string,
+  now: number,
+): Kitten {
+  return {
+    ...kitten,
+    displayName: newDisplayName.trim(),
+    lastUpdatedAt: now,
+  }
 }
 
 export function validateKittenName(name: string): KittenValidationResult {

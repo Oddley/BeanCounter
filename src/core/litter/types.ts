@@ -2,14 +2,14 @@ export interface Litter {
   readonly id: string
   readonly name: string
   readonly active: boolean
-  readonly sheetTabId: string
+  readonly lastUpdatedAt: number
 }
 
 export const NullLitter: Litter = Object.freeze({
   id: '',
   name: 'Unknown',
   active: false,
-  sheetTabId: '',
+  lastUpdatedAt: 0,
 })
 
 export interface LitterValidationResult {

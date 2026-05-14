@@ -10,17 +10,19 @@ Kitten domain: pure types and transformations for an individual kitten within a 
 
 ## Outputs / Contract
 
-- `Kitten` interface — `{ id, displayName, active, litterId, order }`
+- `Kitten` interface — `{ id, displayName, active, litterId, order, lastUpdatedAt }`
 - `NullKitten` — Null Object substitutable wherever `Kitten` is expected (ADR-004)
-- `createKitten({ id, litterId, displayName, order }) → Kitten` — produces a fresh active Kitten at the given order
-- `archiveKitten(Kitten) → Kitten` — soft-delete; idempotent
-- `activateKitten(Kitten) → Kitten` — un-archives; idempotent
-- `renameKitten(Kitten, newDisplayName) → Kitten` — replaces display name; trims
+- `createKitten({ id, litterId, displayName, order, now }) → Kitten` — fresh active Kitten; `lastUpdatedAt = now`
+- `archiveKitten(Kitten, now) → Kitten` — soft-delete; bumps `lastUpdatedAt`
+- `activateKitten(Kitten, now) → Kitten` — un-archives; bumps `lastUpdatedAt`
+- `renameKitten(Kitten, newDisplayName, now) → Kitten` — replaces display name; trims; bumps `lastUpdatedAt`
 - `validateKittenName(name) → { valid, errors[] }` — pure validation
 - `defaultKittenName(index) → string` — produces "Kitten 1", "Kitten 2", …
 - `reassignOrders(orderedKittens[]) → Kitten[]` — given an array in desired order, returns new array with sequential `order` values 0..n-1
 - `moveKittenUp(kittens[], index) → Kitten[]` — swap with previous, reassign orders; out-of-bounds is a no-op (returns shallow copy)
 - `moveKittenDown(kittens[], index) → Kitten[]` — swap with next, reassign orders; out-of-bounds is a no-op
+
+Reorder functions are pure structural transforms — they do NOT bump `lastUpdatedAt`. The shell mutation that persists a reorder bumps `lastUpdatedAt` on each reassigned kitten so sync sees the change.
 
 ## Dependencies
 

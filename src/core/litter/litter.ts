@@ -4,25 +4,33 @@ import {
   MAX_LITTER_NAME_LENGTH,
 } from './types'
 
-export function createLitter(input: { id: string; name: string }): Litter {
+export function createLitter(input: {
+  id: string
+  name: string
+  now: number
+}): Litter {
   return {
     id: input.id,
     name: input.name.trim(),
     active: true,
-    sheetTabId: '',
+    lastUpdatedAt: input.now,
   }
 }
 
-export function archiveLitter(litter: Litter): Litter {
-  return { ...litter, active: false }
+export function archiveLitter(litter: Litter, now: number): Litter {
+  return { ...litter, active: false, lastUpdatedAt: now }
 }
 
-export function activateLitter(litter: Litter): Litter {
-  return { ...litter, active: true }
+export function activateLitter(litter: Litter, now: number): Litter {
+  return { ...litter, active: true, lastUpdatedAt: now }
 }
 
-export function renameLitter(litter: Litter, newName: string): Litter {
-  return { ...litter, name: newName.trim() }
+export function renameLitter(
+  litter: Litter,
+  newName: string,
+  now: number,
+): Litter {
+  return { ...litter, name: newName.trim(), lastUpdatedAt: now }
 }
 
 export function validateLitterName(name: string): LitterValidationResult {

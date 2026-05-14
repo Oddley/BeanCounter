@@ -106,6 +106,7 @@ async function backfillKittenOrder(tx: Transaction): Promise<void> {
         active: k.active,
         litterId: k.litterId,
         order: i,
+        lastUpdatedAt: 0,
       })
     }
   }

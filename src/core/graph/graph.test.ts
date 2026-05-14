@@ -16,6 +16,7 @@ function kitten(id: string, displayName: string, order: number): Kitten {
     active: true,
     litterId: 'L1',
     order,
+    lastUpdatedAt: 0,
   }
 }
 

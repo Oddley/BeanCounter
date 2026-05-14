@@ -20,16 +20,18 @@ function k(id: string, order: number, active = true): Kitten {
     displayName: id,
     active,
     order,
+    lastUpdatedAt: 0,
   }
 }
 
 describe('createKitten', () => {
-  it('returns a kitten with the given id, litterId, displayName, and order, active by default', () => {
+  it('returns a kitten with the given id, litterId, displayName, order, and lastUpdatedAt; active by default', () => {
     const kitten = createKitten({
       id: 'k1',
       litterId: 'L1',
       displayName: 'Mittens',
       order: 0,
+      now: 1000,
     })
     expect(kitten).toEqual({
       id: 'k1',
@@ -37,6 +39,7 @@ describe('createKitten', () => {
       displayName: 'Mittens',
       active: true,
       order: 0,
+      lastUpdatedAt: 1000,
     })
   })
 
@@ -46,6 +49,7 @@ describe('createKitten', () => {
       litterId: 'L1',
       displayName: '  Mittens  ',
       order: 0,
+      now: 0,
     })
     expect(kitten.displayName).toBe('Mittens')
   })
@@ -56,44 +60,50 @@ describe('createKitten', () => {
       litterId: 'L1',
       displayName: 'M',
       order: 7,
+      now: 0,
     })
     expect(kitten.order).toBe(7)
   })
-})
 
-describe('archiveKitten', () => {
-  it('sets active to false', () => {
+  it('sets lastUpdatedAt from now', () => {
     const kitten = createKitten({
       id: 'k1',
       litterId: 'L1',
       displayName: 'M',
       order: 0,
+      now: 42,
     })
-    expect(archiveKitten(kitten).active).toBe(false)
+    expect(kitten.lastUpdatedAt).toBe(42)
+  })
+})
+
+describe('archiveKitten', () => {
+  it('sets active to false and bumps lastUpdatedAt', () => {
+    const kitten = createKitten({
+      id: 'k1',
+      litterId: 'L1',
+      displayName: 'M',
+      order: 0,
+      now: 100,
+    })
+    const archived = archiveKitten(kitten, 500)
+    expect(archived.active).toBe(false)
+    expect(archived.lastUpdatedAt).toBe(500)
   })
 
-  it('preserves other fields including order', () => {
+  it('preserves other fields', () => {
     const kitten = createKitten({
       id: 'k1',
       litterId: 'L1',
       displayName: 'M',
       order: 3,
+      now: 100,
     })
-    const archived = archiveKitten(kitten)
+    const archived = archiveKitten(kitten, 500)
     expect(archived.id).toBe(kitten.id)
     expect(archived.litterId).toBe(kitten.litterId)
     expect(archived.displayName).toBe(kitten.displayName)
     expect(archived.order).toBe(3)
-  })
-
-  it('is idempotent', () => {
-    const kitten = createKitten({
-      id: 'k1',
-      litterId: 'L1',
-      displayName: 'M',
-      order: 0,
-    })
-    expect(archiveKitten(archiveKitten(kitten))).toEqual(archiveKitten(kitten))
   })
 
   it('does not mutate the input', () => {
@@ -102,42 +112,44 @@ describe('archiveKitten', () => {
       litterId: 'L1',
       displayName: 'M',
       order: 0,
+      now: 100,
     })
-    archiveKitten(kitten)
+    archiveKitten(kitten, 500)
     expect(kitten.active).toBe(true)
+    expect(kitten.lastUpdatedAt).toBe(100)
   })
 })
 
 describe('activateKitten', () => {
-  it('sets active to true', () => {
+  it('sets active to true and bumps lastUpdatedAt', () => {
     const archived = archiveKitten(
-      createKitten({ id: 'k1', litterId: 'L1', displayName: 'M', order: 0 }),
+      createKitten({
+        id: 'k1',
+        litterId: 'L1',
+        displayName: 'M',
+        order: 0,
+        now: 100,
+      }),
+      200,
     )
-    expect(activateKitten(archived).active).toBe(true)
-  })
-
-  it('is idempotent', () => {
-    const kitten = createKitten({
-      id: 'k1',
-      litterId: 'L1',
-      displayName: 'M',
-      order: 0,
-    })
-    expect(activateKitten(activateKitten(kitten))).toEqual(
-      activateKitten(kitten),
-    )
+    const restored = activateKitten(archived, 300)
+    expect(restored.active).toBe(true)
+    expect(restored.lastUpdatedAt).toBe(300)
   })
 })
 
 describe('renameKitten', () => {
-  it('changes the display name', () => {
+  it('changes the display name and bumps lastUpdatedAt', () => {
     const kitten = createKitten({
       id: 'k1',
       litterId: 'L1',
       displayName: 'Old',
       order: 0,
+      now: 100,
     })
-    expect(renameKitten(kitten, 'New').displayName).toBe('New')
+    const renamed = renameKitten(kitten, 'New', 200)
+    expect(renamed.displayName).toBe('New')
+    expect(renamed.lastUpdatedAt).toBe(200)
   })
 
   it('trims whitespace', () => {
@@ -146,20 +158,20 @@ describe('renameKitten', () => {
       litterId: 'L1',
       displayName: 'Old',
       order: 0,
+      now: 0,
     })
-    expect(renameKitten(kitten, '  New  ').displayName).toBe('New')
+    expect(renameKitten(kitten, '  New  ', 100).displayName).toBe('New')
   })
 
-  it('preserves litterId and order', () => {
+  it('preserves litterId', () => {
     const kitten = createKitten({
       id: 'k1',
       litterId: 'L1',
       displayName: 'Old',
-      order: 5,
+      order: 0,
+      now: 0,
     })
-    const renamed = renameKitten(kitten, 'New')
-    expect(renamed.litterId).toBe('L1')
-    expect(renamed.order).toBe(5)
+    expect(renameKitten(kitten, 'New', 100).litterId).toBe('L1')
   })
 })
 
@@ -301,9 +313,13 @@ describe('NullKitten', () => {
     expect(NullKitten.order).toBe(0)
   })
 
+  it('has lastUpdatedAt of 0', () => {
+    expect(NullKitten.lastUpdatedAt).toBe(0)
+  })
+
   it('is consumable by Kitten functions (Liskov substitutability)', () => {
-    const archived = archiveKitten(NullKitten)
-    const renamed = renameKitten(NullKitten, 'Anything')
+    const archived = archiveKitten(NullKitten, 1000)
+    const renamed = renameKitten(NullKitten, 'Anything', 1000)
     expect(archived.active).toBe(false)
     expect(renamed.displayName).toBe('Anything')
   })

@@ -1,13 +1,13 @@
 # src/core/settings/
 
-Application-wide singleton settings. In Phase 1, the only field is the optional sticky-litter selection.
+Application-wide singleton settings. Phase 1 had only sticky-litter; Phase 4b adds `lastUpdatedAt` for sync.
 
 ## Outputs / Contract
 
-- `AppSettings` interface — `{ stickyLitterId }`
+- `AppSettings` interface — `{ stickyLitterId, lastUpdatedAt }`
 - `NullAppSettings` — Null Object substitutable for `AppSettings`
-- `setStickyLitter(settings, litterId) → AppSettings` — pin a litter as default landing target
-- `clearStickyLitter(settings) → AppSettings` — unpin
+- `setStickyLitter(settings, litterId, now) → AppSettings` — pin; bumps lastUpdatedAt
+- `clearStickyLitter(settings, now) → AppSettings` — unpin; bumps lastUpdatedAt
 - `hasStickyLitter(settings) → boolean` — is anything currently pinned?
 
 ## Encapsulation
@@ -16,11 +16,12 @@ Application-wide singleton settings. In Phase 1, the only field is the optional 
 
 ## Dependencies
 
-None at runtime.
+None at runtime. Shell supplies `now` at mutation time (dependency inversion per ADR-002).
 
 ## Invariants
 
 - All transformations return new `AppSettings` objects (immutable input)
+- Every mutator bumps `lastUpdatedAt` — sync uses it for per-entity LWW merge (ADR-007)
 - `NullAppSettings.stickyLitterId` is empty string
+- `NullAppSettings.lastUpdatedAt === 0` — treated as "older than any real write" by sync merge
 - `hasStickyLitter(NullAppSettings)` is `false`
-- A future migration may extend `AppSettings` with theme, sync config, etc. — Phase 1 keeps the surface minimal.

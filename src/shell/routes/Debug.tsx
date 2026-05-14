@@ -104,8 +104,9 @@ function variantWeight(baseGrams: number, kittenIndex: number): number {
 }
 
 async function seedDemoLitter(): Promise<string> {
+  const now = Date.now()
   const litterId = newId()
-  const litter = createLitter({ id: litterId, name: 'Demo (Seeded)' })
+  const litter = createLitter({ id: litterId, name: 'Demo (Seeded)', now })
 
   const kittens = SEED_KITTEN_NAMES.map((name, i) =>
     createKitten({
@@ -113,6 +114,7 @@ async function seedDemoLitter(): Promise<string> {
       litterId,
       displayName: name,
       order: i,
+      now,
     }),
   )
 
