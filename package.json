@@ -6,6 +6,9 @@
   "description": "Local-first PWA for foster caregivers to log kitten weights",
   "scripts": {
     "dev": "vite",
+    "dev:start": "node scripts/dev-server.mjs start",
+    "dev:stop": "node scripts/dev-server.mjs stop",
+    "dev:status": "node scripts/dev-server.mjs status",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest",

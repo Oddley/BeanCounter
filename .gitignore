@@ -20,6 +20,10 @@ dev-dist/
 # Test coverage
 coverage/
 
+# dev-server.mjs runtime artifacts
+.dev-server.pid
+.dev-server.log
+
 # OS
 .DS_Store
 Thumbs.db
