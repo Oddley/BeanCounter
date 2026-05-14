@@ -24,6 +24,7 @@ export {
   runSync,
   getLastSyncedAt,
   type SyncRunResult,
+  type RunSyncOptions,
 } from './orchestrator'
 
 export {

@@ -209,7 +209,10 @@ export function Settings() {
   }
 
   const handleSyncNow = async () => {
-    await runSync()
+    // Sync now IS a user gesture, so we allow interactive auth fallback.
+    // If silent token refresh fails (cross-session, third-party-cookie
+    // blocked, etc.), GSI's consent popup runs and unblocks the sync.
+    await runSync({ allowInteractive: true })
     // runSync updates syncState directly; refresh our step view.
     const storedName = getStoredFolderName()
     if (storedName !== null) {

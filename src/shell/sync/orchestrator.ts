@@ -1,4 +1,4 @@
-import { getStoredFolderId, getValidToken } from '../auth'
+import { getStoredFolderId, getValidToken, requestToken } from '../auth'
 import { DriveError, writeFile } from '../drive'
 import {
   type ActiveFileSnapshot,
@@ -81,15 +81,28 @@ async function pushSnapshot(
   })
 }
 
-export async function runSync(): Promise<SyncRunResult> {
+export interface RunSyncOptions {
+  // When true, fall back to interactive OAuth (consent popup) if silent
+  // refresh fails. Caller MUST invoke this from a user-gesture handler
+  // (button onClick, etc.) — browsers block popups otherwise.
+  // Default false: silent-only, suitable for background triggers
+  // (debounce, foreground-return) that mustn't surprise the user.
+  readonly allowInteractive?: boolean
+}
+
+export async function runSync(
+  options: RunSyncOptions = {},
+): Promise<SyncRunResult> {
   if (runInProgress !== null) return runInProgress
-  runInProgress = doRunSync().finally(() => {
+  runInProgress = doRunSync(options).finally(() => {
     runInProgress = null
   })
   return runInProgress
 }
 
-async function doRunSync(): Promise<SyncRunResult> {
+async function doRunSync(
+  options: RunSyncOptions,
+): Promise<SyncRunResult> {
   const folderId = getStoredFolderId()
   if (folderId === null) {
     setSyncState({ status: 'unconnected' })
@@ -98,11 +111,26 @@ async function doRunSync(): Promise<SyncRunResult> {
 
   setSyncState({ status: 'pending', errorMessage: '' })
 
-  const token = await getValidToken()
+  let token = await getValidToken()
+  if (token === null && options.allowInteractive === true) {
+    try {
+      const fresh = await requestToken()
+      token = fresh.accessToken
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Re-auth failed'
+      setSyncState({
+        status: 'error',
+        errorMessage: `Sign-in cancelled or blocked: ${message}`,
+      })
+      return { kind: 'needs-auth' }
+    }
+  }
   if (token === null) {
     setSyncState({
       status: 'error',
-      errorMessage: 'Drive session expired — tap to reconnect',
+      errorMessage:
+        'Drive session expired — open Settings and tap "Sync now" to refresh',
     })
     return { kind: 'needs-auth' }
   }
