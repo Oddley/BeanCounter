@@ -1,3 +1,5 @@
+import type { GsiTokenClient } from './globals'
+
 const SCOPE = 'https://www.googleapis.com/auth/drive.file'
 const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client'
 const TOKEN_REFRESH_MARGIN_MS = 60_000
@@ -5,38 +7,6 @@ const TOKEN_REFRESH_MARGIN_MS = 60_000
 export interface AuthToken {
   readonly accessToken: string
   readonly expiresAt: number
-}
-
-interface GsiTokenResponse {
-  access_token?: string
-  expires_in?: number
-  scope?: string
-  token_type?: string
-  error?: string
-}
-
-interface GsiTokenClient {
-  requestAccessToken: (overrideConfig?: {
-    prompt?: '' | 'none' | 'consent'
-  }) => void
-}
-
-interface GsiTokenClientConfig {
-  client_id: string
-  scope: string
-  callback: (response: GsiTokenResponse) => void
-  error_callback?: (error: { type: string; message?: string }) => void
-}
-
-interface GsiOAuth2 {
-  initTokenClient: (config: GsiTokenClientConfig) => GsiTokenClient
-  revoke: (accessToken: string, callback: () => void) => void
-}
-
-declare global {
-  interface Window {
-    google?: { accounts?: { oauth2?: GsiOAuth2 } }
-  }
 }
 
 let scriptLoadPromise: Promise<void> | null = null
@@ -131,6 +101,22 @@ export async function requestToken(): Promise<AuthToken> {
     resolveCurrent = resolve
     rejectCurrent = reject
     client.requestAccessToken()
+  })
+}
+
+// Attempt to refresh the access token without showing UI. Succeeds if the user
+// still has an active Google session in this browser AND has previously
+// authorized this app. Rejects on failure (caller falls back to requestToken).
+export async function requestTokenSilently(): Promise<AuthToken> {
+  const client = await ensureTokenClient()
+  return new Promise<AuthToken>((resolve, reject) => {
+    if (resolveCurrent !== null || rejectCurrent !== null) {
+      reject(new Error('Token request already in flight'))
+      return
+    }
+    resolveCurrent = resolve
+    rejectCurrent = reject
+    client.requestAccessToken({ prompt: 'none' })
   })
 }
 
