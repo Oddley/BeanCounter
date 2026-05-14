@@ -135,3 +135,17 @@ export function hasToken(): boolean {
 export function clearToken(): void {
   currentToken = null
 }
+
+// Returns a valid access token, attempting silent refresh if the cached
+// one is missing/expired. Returns null if the user needs to perform an
+// interactive consent flow (which requires a user gesture).
+export async function getValidToken(): Promise<string | null> {
+  const cached = getCurrentToken()
+  if (cached !== null) return cached
+  try {
+    const fresh = await requestTokenSilently()
+    return fresh.accessToken
+  } catch {
+    return null
+  }
+}

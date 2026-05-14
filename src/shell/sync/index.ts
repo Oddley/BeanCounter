@@ -19,3 +19,18 @@ export {
 } from './first-connect'
 
 export { attemptBootReconnect } from './boot'
+
+export {
+  runSync,
+  getLastSyncedAt,
+  type SyncRunResult,
+} from './orchestrator'
+
+export {
+  markDirty,
+  clearDirty,
+  isDirty,
+  getDirtySince,
+} from './dirty'
+
+export { installForegroundSync } from './foreground'

@@ -5,6 +5,7 @@ export {
   getCurrentToken,
   hasToken,
   clearToken,
+  getValidToken,
   type AuthToken,
 } from './gsi'
 
