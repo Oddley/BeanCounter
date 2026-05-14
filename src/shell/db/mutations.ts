@@ -35,6 +35,9 @@ import {
 } from '../../core/weight'
 import { newId } from '../../core/ids'
 import { db, SETTINGS_SINGLETON_ID, type SettingsRecord } from './dexie'
+// Import directly from dirty.ts (not the sync barrel) to avoid pulling
+// in orchestrator.ts and creating a circular import via shell/db.
+import { markDirty } from '../sync/dirty'
 
 export interface NewLitterInput {
   readonly name: string
@@ -67,6 +70,7 @@ export async function persistNewLitter(
     await db.kittens.bulkAdd([...kittens])
   })
 
+  markDirty()
   return { litter, kittens }
 }
 
@@ -74,12 +78,14 @@ export async function archiveLitterById(id: string): Promise<void> {
   const found = (await db.litters.get(id)) ?? NullLitter
   if (!found.id) return
   await db.litters.put(archiveLitter(found, Date.now()))
+  markDirty()
 }
 
 export async function activateLitterById(id: string): Promise<void> {
   const found = (await db.litters.get(id)) ?? NullLitter
   if (!found.id) return
   await db.litters.put(activateLitter(found, Date.now()))
+  markDirty()
 }
 
 export async function renameLitterById(
@@ -89,6 +95,7 @@ export async function renameLitterById(
   const found = (await db.litters.get(id)) ?? NullLitter
   if (!found.id) return
   await db.litters.put(renameLitter(found, newName, Date.now()))
+  markDirty()
 }
 
 export async function persistNewKitten(input: {
@@ -108,6 +115,7 @@ export async function persistNewKitten(input: {
     now: Date.now(),
   })
   await db.kittens.add(kitten)
+  markDirty()
   return kitten
 }
 
@@ -115,6 +123,7 @@ export async function archiveKittenById(id: string): Promise<void> {
   const found = (await db.kittens.get(id)) ?? NullKitten
   if (!found.id) return
   await db.kittens.put(archiveKitten(found, Date.now()))
+  markDirty()
 }
 
 export async function activateKittenById(id: string): Promise<void> {
@@ -129,6 +138,7 @@ export async function activateKittenById(id: string): Promise<void> {
     .reduce((m, k) => Math.max(m, k.order), -1)
   const restored = activateKitten(found, Date.now())
   await db.kittens.put({ ...restored, order: maxActiveOrder + 1 })
+  markDirty()
 }
 
 export async function renameKittenById(
@@ -138,6 +148,7 @@ export async function renameKittenById(
   const found = (await db.kittens.get(id)) ?? NullKitten
   if (!found.id) return
   await db.kittens.put(renameKitten(found, newDisplayName, Date.now()))
+  markDirty()
 }
 
 async function readSettings(): Promise<SettingsRecord> {
@@ -149,12 +160,14 @@ export async function setStickyLitterById(litterId: string): Promise<void> {
   const current = await readSettings()
   const next = setStickyLitter(current, litterId, Date.now())
   await db.settings.put({ ...next, id: SETTINGS_SINGLETON_ID })
+  markDirty()
 }
 
 export async function clearStickyLitterById(): Promise<void> {
   const current = await readSettings()
   const next = clearStickyLitter(current, Date.now())
   await db.settings.put({ ...next, id: SETTINGS_SINGLETON_ID })
+  markDirty()
 }
 
 export async function persistKittenOrder(
@@ -166,6 +179,7 @@ export async function persistKittenOrder(
     lastUpdatedAt: now,
   }))
   await db.kittens.bulkPut(reassigned)
+  markDirty()
 }
 
 export async function ensureOpenSessionForLitter(
@@ -185,6 +199,7 @@ export async function ensureOpenSessionForLitter(
     createdAt: now,
   })
   await db.feedingSessions.add(session)
+  markDirty()
   return session
 }
 
@@ -195,12 +210,14 @@ export async function touchSessionById(
   const session = await db.feedingSessions.get(sessionId)
   if (!session) return
   await db.feedingSessions.put(touchSession(session, now))
+  markDirty()
 }
 
 export async function completeSessionById(sessionId: string): Promise<void> {
   const session = await db.feedingSessions.get(sessionId)
   if (!session) return
   await db.feedingSessions.put(completeSession(session))
+  markDirty()
 }
 
 export async function setSessionRecordedAtById(
@@ -210,6 +227,7 @@ export async function setSessionRecordedAtById(
   const session = await db.feedingSessions.get(sessionId)
   if (!session) return
   await db.feedingSessions.put(setRecordedAt(session, time))
+  markDirty()
 }
 
 export async function clearSessionRecordedAtById(
@@ -218,6 +236,7 @@ export async function clearSessionRecordedAtById(
   const session = await db.feedingSessions.get(sessionId)
   if (!session) return
   await db.feedingSessions.put(clearRecordedAt(session))
+  markDirty()
 }
 
 export async function ensureOpenSessionWithRecordedAt(
@@ -234,6 +253,7 @@ export async function ensureOpenSessionWithRecordedAt(
     if (recordedAt > 0 && existing.recordedAt !== recordedAt) {
       const updated = setRecordedAt(existing, recordedAt)
       await db.feedingSessions.put(updated)
+      markDirty()
       return updated
     }
     return existing
@@ -241,6 +261,7 @@ export async function ensureOpenSessionWithRecordedAt(
   const base = createSession({ id: newId(), litterId, createdAt: now })
   const session = recordedAt > 0 ? setRecordedAt(base, recordedAt) : base
   await db.feedingSessions.add(session)
+  markDirty()
   return session
 }
 
@@ -264,6 +285,7 @@ export async function persistWeightEntry(input: {
       await db.feedingSessions.put(touchSession(session, input.now))
     }
   })
+  markDirty()
   return entry
 }
 
@@ -283,4 +305,5 @@ export async function wipeAllData(): Promise<void> {
       })
     },
   )
+  markDirty()
 }
