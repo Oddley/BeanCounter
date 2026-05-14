@@ -19,16 +19,28 @@ The original spec inherited "Sheets" from the inspiration ("replaces a shared Go
 ## Drive Layout
 
 ```
-BeanCounter/
+<user-selected folder>/                    ← chosen via Google Picker at first-connect
   active.json                              ← all active litters + kittens + sessions + weight entries + settings
   archive/
     YYYY-MM-DD-<litter-id>.json            ← one per archived litter; immutable once written
 ```
 
+- The folder is **user-selected via the Google Picker API**, not hardcoded. Folder name is whatever the user picks or creates (e.g., "Kitten Weights 2026"). The previously-assumed `BeanCounter/` name is now just the default suggestion.
 - Drive folder listing is the "manifest" — no separate manifest file
 - `active.json` is the hot path: read and written continuously
 - Archive files are written once at archive-time and never modified
 - Archive filename leads with the archive date (local time, YYYY-MM-DD) so a human browsing the folder sees them in chronological order; the litter id suffix disambiguates same-day archives
+
+## Multi-User Sharing
+
+Multiple caregivers (e.g., "Elly" and "Branden") collaborate by sharing one folder across separate Google accounts:
+
+1. Elly first-connects on her device: app pops Picker → she creates / picks her folder → app stores folder ID.
+2. Elly shares the folder with Branden's Google account from Drive's native UI (right-click → Share).
+3. Branden first-connects on his device: app pops Picker → he sees the shared folder under "Shared with me" → selects it → his app stores the same folder ID.
+4. Both devices read/write `active.json` in that folder; both see the other's changes once sync triggers fire.
+
+The `drive.file` OAuth scope grants access to files the user explicitly opens via the Picker. This is the load-bearing reason Picker is required: with `drive.file` alone (no Picker), Branden's app wouldn't be able to access a folder it didn't create on Branden's own Drive.
 
 ## Archive Scope for Phase 4
 
@@ -36,12 +48,16 @@ Archive files in Drive serve as **persistent backup** in Phase 4 — write-once,
 
 Cross-device archive surfacing (listing archive files from Drive on devices that don't have them locally), in-app archive viewer, CSV export, and similar "what can I do with an archived litter beyond knowing the file exists in Drive" features are deferred to a future phase beyond 4.5.
 
-## OAuth
+## OAuth + Picker
 
-- **Library:** Google Identity Services (GSI) — `google.accounts.oauth2.initTokenClient`
-- **Scope:** `drive.file` — access only files our app created (minimum permission)
-- **Token:** in-memory only; silent refresh via GSI on need; never persisted in localStorage
+- **OAuth library:** Google Identity Services (GSI) — `google.accounts.oauth2.initTokenClient`
+- **Picker library:** loaded from `https://apis.google.com/js/api.js` + `gapi.load('picker', …)`
+- **Scope:** `drive.file` — access only files this app created OR files the user explicitly opened via the Picker (sufficient for multi-user shared folders)
+- **API key:** separate from the OAuth client ID; required by the Picker API. Configured via `VITE_GOOGLE_API_KEY` env var.
+- **Token:** in-memory only; silent refresh via GSI (`prompt: 'none'`) on need; never persisted in localStorage
+- **Folder ID:** persisted in `localStorage` per device after first-connect's Picker selection. This is device-local config, NOT user data, so it lives outside Dexie + outside Drive's `active.json`.
 - **Token failure (401):** sync indicator goes red; tap to reconnect (re-prompts GSI consent if needed)
+- **Boot behavior:** on app start, if a folder ID is in localStorage, attempt silent token refresh; on success the app boots into the connected state without user interaction.
 
 ## Merge Strategy — Per-Entity Last-Write-Wins
 

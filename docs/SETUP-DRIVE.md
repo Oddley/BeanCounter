@@ -62,15 +62,31 @@ You're in "testing" mode — only test users you added can sign in. That's fine 
 7. **Create**
 8. A modal pops up with your **Client ID** (long string ending in `.apps.googleusercontent.com`). **Copy it.**
 
-## Step 5 — Drop the client ID into `.env.local`
+## Step 5 — Create an API Key (for the Picker)
+
+The Picker API requires an API key in addition to the OAuth Client ID. The API key identifies the app to the Picker service; it's a separate credential from the OAuth client.
+
+1. **APIs & Services → Credentials → Create Credentials → API key**
+2. A modal pops up with your **API key**. **Copy it.**
+3. Click **"Edit API Key"** (or the new entry in the credentials list) to add restrictions:
+   - **Application restrictions:** **HTTP referrers (websites)**
+   - Add each origin you'll use, with `*` for the path:
+     - `http://localhost:5173/*`
+     - `http://<your-local-IP>.nip.io:5173/*`
+     - Production URL when we deploy
+   - **API restrictions:** **Restrict key** → select **Google Picker API**
+4. Also enable the Picker API: **APIs & Services → Library → search "Google Picker API" → Enable**
+
+## Step 6 — Drop both credentials into `.env.local`
 
 In the project root, create `.env.local` (already gitignored):
 
 ```
 VITE_GOOGLE_CLIENT_ID=YOUR_CLIENT_ID_HERE.apps.googleusercontent.com
+VITE_GOOGLE_API_KEY=YOUR_API_KEY_HERE
 ```
 
-Restart the Vite dev server (`npm run dev`) so the env var is picked up.
+Restart the Vite dev server (`npm run dev`) so both env vars are picked up.
 
 ---
 
