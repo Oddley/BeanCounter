@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import {
   Home,
@@ -10,6 +11,7 @@ import {
   Debug,
   NotFound,
 } from '../routes'
+import { attemptBootReconnect } from '../sync'
 
 const router = createBrowserRouter([
   { path: '/', element: <Home /> },
@@ -24,5 +26,9 @@ const router = createBrowserRouter([
 ])
 
 export function App() {
+  useEffect(() => {
+    attemptBootReconnect()
+  }, [])
+
   return <RouterProvider router={router} />
 }

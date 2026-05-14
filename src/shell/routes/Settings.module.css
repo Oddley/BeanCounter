@@ -60,3 +60,42 @@
 .diagnosticLink:active {
   background: var(--color-border);
 }
+
+.warning {
+  padding: var(--space-3);
+  border: 1px solid #ff6b6b;
+  border-radius: var(--radius);
+  background: rgba(255, 107, 107, 0.08);
+  margin-top: var(--space-3);
+}
+
+.warning p {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.warningButtons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.warningButtons > * {
+  width: 100%;
+}
+
+.success {
+  color: #4ade80;
+  margin-top: var(--space-3);
+}
+
+.connectedButtons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.connectedButtons > * {
+  width: 100%;
+}
