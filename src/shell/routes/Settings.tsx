@@ -19,6 +19,7 @@ import {
   pushLocalToActive,
   pullActiveToLocal,
   hasAnyLocalData,
+  runSync,
   type InspectionResult,
 } from '../sync'
 import styles from './Settings.module.css'
@@ -207,6 +208,15 @@ export function Settings() {
     setSyncState({ status: 'unconnected', errorMessage: '' })
   }
 
+  const handleSyncNow = async () => {
+    await runSync()
+    // runSync updates syncState directly; refresh our step view.
+    const storedName = getStoredFolderName()
+    if (storedName !== null) {
+      setStep({ kind: 'connected', folderName: storedName })
+    }
+  }
+
   return (
     <>
       <AppBar title="Settings" backTo="/" />
@@ -360,15 +370,29 @@ export function Settings() {
                   <p>
                     Connected to <strong>{step.folderName}</strong>.
                   </p>
+                  {syncState.lastSyncedAt > 0 && (
+                    <p className={styles.muted}>
+                      Last synced: {formatRelative(syncState.lastSyncedAt)}
+                    </p>
+                  )}
+                  {syncState.conflictCount > 0 && (
+                    <p className={styles.error}>
+                      ⚠ {syncState.conflictCount} merge conflict
+                      {syncState.conflictCount === 1 ? '' : 's'} on the last
+                      sync. Conflict-resolution UI lands in Phase 4.5.
+                    </p>
+                  )}
                   <p className={styles.muted}>
-                    Tap Reconnect to refresh the OAuth session for this
-                    browser session. (Browsers don't allow auto-popups, so
-                    a tap is required after a fresh page load.) Reconnect
-                    will keep this folder — you only re-pick if you want a
-                    different one.
+                    Sync runs automatically after edits (60s debounce), on
+                    Finish-weights tap, and when the app returns to the
+                    foreground after &gt;10min away. Tap Sync now to force
+                    a sync, or Reconnect if the session expired.
                   </p>
                   <div className={styles.connectedButtons}>
-                    <Button onClick={handleReconnect}>Reconnect</Button>
+                    <Button onClick={handleSyncNow}>Sync now</Button>
+                    <Button variant="secondary" onClick={handleReconnect}>
+                      Reconnect
+                    </Button>
                     <Button variant="secondary" onClick={handleReset}>
                       Disconnect / choose different folder
                     </Button>
@@ -415,4 +439,17 @@ function labelFor(
     case 'error':
       return 'Error'
   }
+}
+
+function formatRelative(millis: number): string {
+  const diff = Date.now() - millis
+  if (diff < 0) return 'in the future'
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return `${String(seconds)}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${String(minutes)}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${String(hours)}h ago`
+  const days = Math.floor(hours / 24)
+  return `${String(days)}d ago`
 }

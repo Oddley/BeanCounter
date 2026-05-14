@@ -23,6 +23,7 @@ import { type Kitten } from '../../core/kitten'
 import { type WeightEntry, validateGrams } from '../../core/weight'
 import { isSameLocalDay } from '../../core/time'
 import { useAutosave } from '../hooks'
+import { runSync } from '../sync'
 import styles from './FeedingSession.module.css'
 
 function formatClockTime(millis: number, now: number): string {
@@ -137,6 +138,10 @@ export function FeedingSession() {
       return
     }
     await completeSessionById(openSession.id)
+    // Fire-and-forget immediate sync on Finish: the user has done a
+    // meaningful unit of work and expects it pushed without waiting on
+    // the 60s debounce.
+    void runSync()
     navigate(`/litters/${litterId}`)
   }
 
