@@ -2,11 +2,12 @@
 
 Sync state machine + (later) sync orchestration logic.
 
-## Phase 4a scope (this directory currently)
+## Files
 
-- `state.ts` — module-level sync state with `useSyncState` hook for components. Mutator `setSyncState` is called by auth + sync code to drive the indicator.
+- `state.ts` — module-level sync state with `useSyncState` hook for components. Mutator `setSyncState` is called by auth + sync code to drive the AppBar indicator.
+- `first-connect.ts` (Phase 4b) — first-connect orchestration: `inspectDrive` (find folder + active.json + parse), `snapshotLocal` (Dexie → ActiveFile shape), `pushLocalToActive` (write to Drive), `pullActiveToLocal` (wipe Dexie + restore), `hasAnyLocalData` (decide auto-pull vs warn)
 
-## Phase 4d scope (coming)
+## Phase 4c/4d scope (coming)
 
 - `orchestrator.ts` — debounce, foreground-pull, finish-tap immediate, service-worker push-while-pending wiring
 - `merge-runner.ts` — drives `core/sync.merge` from local Dexie state + remote `active.json`
