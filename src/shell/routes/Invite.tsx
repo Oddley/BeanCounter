@@ -182,7 +182,17 @@ export function Invite() {
   }
 
   const handleGoHome = () => {
-    navigate('/')
+    void navigate('/')
+  }
+
+  // Wrappers: onClick attributes expect void-returning handlers, but
+  // our flows are async. Wrap with `void` to acknowledge the floating
+  // promise (errors are surfaced via setStep('error') inside the body).
+  const onAccept = () => {
+    void handleAccept()
+  }
+  const onConfirmPull = () => {
+    void handleConfirmPull()
   }
 
   const currentFolderName = getStoredFolderName()
@@ -243,7 +253,7 @@ export function Invite() {
               the shared folder from a list. Look for it under{' '}
               <strong>&quot;Shared with me&quot;</strong>.
             </p>
-            <Button onClick={handleAccept} className={styles.acceptButton}>
+            <Button onClick={onAccept} className={styles.acceptButton}>
               Accept invitation
             </Button>
             <Button variant="secondary" onClick={handleGoHome}>
@@ -277,7 +287,7 @@ export function Invite() {
               ask whoever invited you to re-share the folder with this Google
               account.
             </p>
-            <Button onClick={handleAccept}>Try again</Button>
+            <Button onClick={onAccept}>Try again</Button>
             <Button variant="secondary" onClick={handleGoHome}>
               Cancel
             </Button>
@@ -308,7 +318,7 @@ export function Invite() {
               {step.file.kittens.length} kitten
               {step.file.kittens.length === 1 ? '' : 's'}.
             </p>
-            <Button variant="danger" onClick={handleConfirmPull}>
+            <Button variant="danger" onClick={onConfirmPull}>
               Replace local with shared folder
             </Button>
             <Button variant="secondary" onClick={handleGoHome}>
@@ -333,7 +343,7 @@ export function Invite() {
         {fullyConfigured && step.kind === 'error' && (
           <div className={styles.errorPanel}>
             <p className={styles.error}>{step.message}</p>
-            <Button onClick={handleAccept}>Try again</Button>
+            <Button onClick={onAccept}>Try again</Button>
             <Button variant="secondary" onClick={handleGoHome}>
               Cancel
             </Button>

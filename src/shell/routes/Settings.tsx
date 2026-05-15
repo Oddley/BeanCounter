@@ -11,7 +11,7 @@ import {
   getStoredFolderId,
   getStoredFolderName,
 } from '../auth'
-import { DriveError } from '../drive'
+import { DriveError, sharePermission } from '../drive'
 import {
   setSyncState,
   useSyncState,
@@ -22,7 +22,14 @@ import {
   runSync,
   type InspectionResult,
 } from '../sync'
+import { buildInviteUrl } from '../../core/invite'
 import styles from './Settings.module.css'
+
+type InviteState =
+  | { kind: 'idle' }
+  | { kind: 'sending' }
+  | { kind: 'success'; email: string }
+  | { kind: 'error'; message: string }
 
 type Step =
   | { kind: 'idle' }
@@ -61,6 +68,8 @@ type Step =
 export function Settings() {
   const syncState = useSyncState()
   const [step, setStep] = useState<Step>({ kind: 'idle' })
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteState, setInviteState] = useState<InviteState>({ kind: 'idle' })
   const authConfigured = isAuthConfigured()
   const pickerConfigured = isPickerConfigured()
   const fullyConfigured = authConfigured && pickerConfigured
@@ -206,6 +215,56 @@ export function Settings() {
     clearStoredFolder()
     setStep({ kind: 'disconnected' })
     setSyncState({ status: 'offline', errorMessage: '' })
+  }
+
+  const handleSendInvite = async () => {
+    const folderId = getStoredFolderId()
+    const folderName = getStoredFolderName()
+    if (folderId === null || folderName === null) {
+      setInviteState({
+        kind: 'error',
+        message: 'Connect to a folder before inviting others.',
+      })
+      return
+    }
+    const email = inviteEmail.trim()
+    if (!email.includes('@') || email.length < 3) {
+      setInviteState({
+        kind: 'error',
+        message: 'Enter a valid email address.',
+      })
+      return
+    }
+
+    setInviteState({ kind: 'sending' })
+    try {
+      const token = await requestToken()
+      const inviteUrl = buildInviteUrl({
+        origin: window.location.origin,
+        folderId,
+        folderName,
+      })
+      const message =
+        `You've been invited to share a Bean Counter household.\n\n` +
+        `To accept, tap this link on your phone:\n${inviteUrl}\n\n` +
+        `Sign in with this Google account (the one this email was sent to).`
+      await sharePermission(token.accessToken, {
+        fileId: folderId,
+        email,
+        emailMessage: message,
+        role: 'writer',
+      })
+      setInviteState({ kind: 'success', email })
+      setInviteEmail('')
+    } catch (err) {
+      const errorMessage =
+        err instanceof DriveError
+          ? `Drive API error (${String(err.status)}): ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : 'Unknown error'
+      setInviteState({ kind: 'error', message: errorMessage })
+    }
   }
 
   const handleSyncNow = async () => {
@@ -428,6 +487,54 @@ export function Settings() {
             </>
           )}
         </section>
+
+        {fullyConfigured && step.kind === 'connected' && (
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Invite a caregiver</h2>
+            <p className={styles.muted}>
+              Share this household with another foster caregiver. They&apos;ll
+              receive an email from Google with a link to join. Both devices
+              will sync the same data.
+            </p>
+            <label className={styles.inviteLabel}>
+              Their email address
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={inviteEmail}
+                onChange={(e) => {
+                  setInviteEmail(e.target.value)
+                  if (inviteState.kind !== 'idle') {
+                    setInviteState({ kind: 'idle' })
+                  }
+                }}
+                disabled={inviteState.kind === 'sending'}
+                placeholder="caregiver@example.com"
+                className={styles.inviteInput}
+              />
+            </label>
+            <Button
+              onClick={handleSendInvite}
+              disabled={
+                inviteState.kind === 'sending' || inviteEmail.trim() === ''
+              }
+              className={styles.inviteButton}
+            >
+              {inviteState.kind === 'sending' ? 'Sending…' : 'Send invite'}
+            </Button>
+            {inviteState.kind === 'success' && (
+              <p className={styles.success}>
+                ✓ Invite sent to <strong>{inviteState.email}</strong>. They
+                should check their email (including spam) for a message from
+                Google Drive with a link.
+              </p>
+            )}
+            {inviteState.kind === 'error' && (
+              <p className={styles.error}>{inviteState.message}</p>
+            )}
+          </section>
+        )}
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Diagnostics</h2>
