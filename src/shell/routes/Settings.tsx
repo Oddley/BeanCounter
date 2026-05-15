@@ -5,6 +5,7 @@ import {
   isAuthConfigured,
   isPickerConfigured,
   requestToken,
+  getValidToken,
   pickFolder,
   setStoredFolder,
   clearStoredFolder,
@@ -238,7 +239,18 @@ export function Settings() {
 
     setInviteState({ kind: 'sending' })
     try {
-      const token = await requestToken()
+      // Prefer the cached token from the existing session — that token
+      // carries the per-file authorization granted when the user
+      // originally picked the folder via the Picker. A fresh
+      // requestToken() issues a new token that, in practice, lacks that
+      // per-file access list and gets a 404 from permissions endpoints.
+      // Fall back to requestToken (with its consent popup) only if the
+      // cached token is missing or expired.
+      let token = await getValidToken()
+      if (token === null) {
+        const fresh = await requestToken()
+        token = fresh.accessToken
+      }
       const inviteUrl = buildInviteUrl({
         origin: window.location.origin,
         folderId,
@@ -248,7 +260,7 @@ export function Settings() {
         `You've been invited to share a Bean Counter household.\n\n` +
         `To accept, tap this link on your phone:\n${inviteUrl}\n\n` +
         `Sign in with this Google account (the one this email was sent to).`
-      await sharePermission(token.accessToken, {
+      await sharePermission(token, {
         fileId: folderId,
         email,
         emailMessage: message,
