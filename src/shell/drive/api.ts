@@ -160,6 +160,10 @@ export async function sharePermission(
   const role = options.role ?? 'writer'
   const params = new URLSearchParams({
     sendNotificationEmail: 'true',
+    // Some Drive endpoints silently 404 without this param, even for
+    // files in My Drive (not Shared Drive). Setting it is a no-op for
+    // personal-drive folders and enables Shared Drive support.
+    supportsAllDrives: 'true',
     fields: 'id',
   })
   if (options.emailMessage !== undefined && options.emailMessage !== '') {
