@@ -134,3 +134,47 @@ export async function writeFile(
   const data = (await response.json()) as DriveFile
   return data.id
 }
+
+export interface SharePermissionOptions {
+  readonly fileId: string
+  readonly email: string
+  readonly emailMessage?: string
+  readonly role?: 'reader' | 'writer'
+}
+
+export interface SharePermissionResult {
+  readonly permissionId: string
+}
+
+// Grant another Google account access to a Drive file/folder. We always
+// request `sendNotificationEmail=true` so Google sends the recipient a
+// share notification with our `emailMessage` injected — that's the
+// channel the deep-link invite URL rides on.
+//
+// Requires the caller's token to have permission to share the file
+// (the user must own it or have been granted editor-or-higher access).
+export async function sharePermission(
+  token: string,
+  options: SharePermissionOptions,
+): Promise<SharePermissionResult> {
+  const role = options.role ?? 'writer'
+  const params = new URLSearchParams({
+    sendNotificationEmail: 'true',
+    fields: 'id',
+  })
+  if (options.emailMessage !== undefined && options.emailMessage !== '') {
+    params.set('emailMessage', options.emailMessage)
+  }
+  const url = `${DRIVE_API_BASE}/files/${options.fileId}/permissions?${params.toString()}`
+  const response = await driveFetch(token, url, {
+    method: 'POST',
+    headers: { 'Content-Type': JSON_MIME },
+    body: JSON.stringify({
+      type: 'user',
+      role,
+      emailAddress: options.email,
+    }),
+  })
+  const data = (await response.json()) as { id: string }
+  return { permissionId: data.id }
+}

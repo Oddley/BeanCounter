@@ -15,6 +15,7 @@ Typed wrapper around the Google Drive REST API v3. All calls are scoped to `driv
 - `findOrCreateFolder(token, name, parentId?) → folderId` — idempotent
 - `readFileContent(token, fileId) → string` — UTF-8 text body
 - `writeFile(token, options) → fileId` — create (multipart) or update (media) depending on `existingFileId`
+- `sharePermission(token, options) → { permissionId }` — grants another user role-based access; always requests Google to send a notification email (with optional injected message body)
 
 ## Dependencies
 
