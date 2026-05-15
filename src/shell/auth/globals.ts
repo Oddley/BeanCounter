@@ -72,6 +72,10 @@ export interface GapiLoadConfig {
 
 export interface GapiNamespace {
   load(api: string, config: GapiLoadConfig | (() => void)): void
+  // drive-share module is registered under gapi.drive.share (NOT
+  // google.drive.share — Google's namespace organization is
+  // inconsistent across libraries).
+  drive?: { share?: DriveShareNamespace }
 }
 
 // Drive Share Client — Google's native share-dialog widget. Loaded via
@@ -95,7 +99,6 @@ declare global {
     google?: {
       accounts?: { oauth2?: GsiOAuth2 }
       picker?: PickerNamespace
-      drive?: { share?: DriveShareNamespace }
     }
   }
 }

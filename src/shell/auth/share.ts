@@ -75,9 +75,14 @@ export async function openDriveShareDialog(
   folderId: string,
 ): Promise<void> {
   await loadDriveShareModule()
-  const share = window.google?.drive?.share
+  // Drive Share Client lives on gapi.drive.share, not google.drive.share
+  // (unlike the Picker which is on google.picker). Inconsistency in
+  // Google's namespaces — easy to get wrong on first attempt.
+  const share = window.gapi?.drive?.share
   if (!share) {
-    throw new Error('Drive Share Client failed to initialize')
+    throw new Error(
+      'Drive Share Client failed to initialize (gapi.drive.share missing)',
+    )
   }
   const client: DriveShareClient = new share.ShareClient()
   client.setOAuthToken(accessToken)
