@@ -1,0 +1,5 @@
+# Cloudflare Pages / Netlify SPA fallback.
+# Any unmatched URL serves index.html with a 200 status so React Router
+# can handle client-side routing for deep links and page refreshes.
+# Without this, refreshing on /litters/abc would 404 at the CDN edge.
+/*    /index.html   200
