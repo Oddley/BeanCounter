@@ -139,13 +139,15 @@ export function LitterGraph() {
     setFocusedKittenId((current) => (current === kittenId ? null : kittenId))
   }
 
-  // Map a clicked X-axis time to the session that recorded at (or
-  // nearest to) that time. Only meaningful in rough mode, where each
-  // point corresponds to exactly one session.
+  // Map a tooltip-position X-axis time to the session that recorded at
+  // (or nearest to) that time. Fires continuously as the user
+  // hovers/drags/taps across the chart, mirroring Recharts' tooltip.
+  // Only meaningful in rough mode, where each point corresponds to
+  // exactly one session.
   const litterSessions = (allSessions ?? []).filter(
     (s) => s.litterId === litterId,
   )
-  const handleTimeClick = (time: number) => {
+  const handleTimeChange = (time: number) => {
     if (mode !== 'rough') return
     if (litterSessions.length === 0) return
     let best = litterSessions[0]
@@ -158,8 +160,10 @@ export function LitterGraph() {
         bestDelta = delta
       }
     }
-    // Toggle off if tapping the already-selected one
-    setSelectedSessionId((current) => (current === best.id ? null : best.id))
+    // Always reflect the current tooltip position; no toggle-off. The
+    // ref-equality bail-out in React's state setter prevents needless
+    // re-renders when the cursor stays within the same feeding.
+    setSelectedSessionId((current) => (current === best.id ? current : best.id))
   }
 
   // When the user switches modes we drop selection — smooth-mode points
@@ -203,7 +207,7 @@ export function LitterGraph() {
           xRange={xRange}
           yRange={yRange}
           selectedTime={selectedTime}
-          onTimeClick={handleTimeClick}
+          onTimeChange={handleTimeChange}
         />
 
         <KittenLegend

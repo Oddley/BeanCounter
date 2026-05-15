@@ -35,12 +35,13 @@ export interface WeightChartProps {
   readonly yRange: AxisRange
   // Optional selection: when present, draws a vertical reference line
   // at this time (in ms) so the user has a clear "this feeding is
-  // selected" cue across all kittens. Set via onTimeClick.
+  // selected" cue across all kittens that persists after the touch
+  // ends (Recharts' own tooltip cursor disappears on touch-end).
   readonly selectedTime?: number | null
-  // Optional click handler: fires when the user taps the chart with
-  // the time (in ms) of the closest data point's X. Caller maps that
-  // time to a session.
-  readonly onTimeClick?: (time: number) => void
+  // Optional change handler: fires continuously while the user hovers
+  // or drags across the chart (and on tap). Receives the time (ms) of
+  // the closest data point. Caller maps that time to a session.
+  readonly onTimeChange?: (time: number) => void
 }
 
 function formatTimeTick(millis: number, now: number): string {
@@ -66,7 +67,7 @@ export function WeightChart({
   xRange,
   yRange,
   selectedTime,
-  onTimeClick,
+  onTimeChange,
 }: WeightChartProps) {
   const now = useMemo(() => Date.now(), [])
 
@@ -85,13 +86,27 @@ export function WeightChart({
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           margin={{ top: 8, right: 16, bottom: 8, left: 4 }}
-          onClick={(state) => {
-            if (onTimeClick === undefined) return
+          // Mirror Recharts' own tooltip cursor: hover/drag/tap all
+          // update selection to the closest data point's X. State
+          // updates bail out via React when the same session would be
+          // re-selected, so per-pixel mousemove is cheap.
+          onMouseMove={(state) => {
+            if (onTimeChange === undefined) return
             const raw = (state as { activeLabel?: string | number | undefined })
               .activeLabel
             if (raw === undefined) return
             const t = typeof raw === 'number' ? raw : Number(raw)
-            if (Number.isFinite(t)) onTimeClick(t)
+            if (Number.isFinite(t)) onTimeChange(t)
+          }}
+          onClick={(state) => {
+            // Safety net for environments where a tap doesn't also fire
+            // mousemove (some touch implementations). Same handler.
+            if (onTimeChange === undefined) return
+            const raw = (state as { activeLabel?: string | number | undefined })
+              .activeLabel
+            if (raw === undefined) return
+            const t = typeof raw === 'number' ? raw : Number(raw)
+            if (Number.isFinite(t)) onTimeChange(t)
           }}
         >
           <CartesianGrid stroke="#2a2a2a" strokeDasharray="3 3" />
