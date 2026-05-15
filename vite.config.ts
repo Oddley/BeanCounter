@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: 'Bean Counter',
-        short_name: 'Beans',
+        short_name: 'Bean Counter',
         description: 'Local-first kitten weight logger for foster caregivers',
         theme_color: '#0a0a0a',
         background_color: '#0a0a0a',
@@ -35,7 +35,11 @@ export default defineConfig({
             purpose: 'any',
           },
           {
-            src: 'icon-512.png',
+            // Maskable variant: artwork inset to fit within the W3C
+            // safe-zone circle (80% of canvas) so Android's icon-shape
+            // mask doesn't crop into the paw/scale composition. Same
+            // logo, just shrunk with a blue-border padding.
+            src: 'icon-512-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
