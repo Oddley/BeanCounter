@@ -34,6 +34,17 @@ Scope at audit time:
   - "Request a feature" → similar with feature_request template
 - Consider: does foster mama actually want this, or is it more for technical contributors? Probably both, but UX should be light — one Settings link, not a prominent always-visible button.
 
+### Cloudflare deploy doc
+
+Document the Cloudflare Workers+Pages setup we landed on (not the classic Pages flow with `_redirects`). Specifically:
+- Branding is "Workers + Pages" / `*.workers.dev` URL, not `*.pages.dev`
+- SPA fallback handled by auto-generated wrangler config (`not_found_handling: "single-page-application"`), NOT a `_redirects` file (which fails validation on this platform)
+- Deploy is triggered on every push to main
+- Build command: `npm run build`, output dir: `dist`
+- Env vars: `VITE_GOOGLE_CLIENT_ID` + `VITE_GOOGLE_API_KEY` set in the Cloudflare project's Production env
+
+Should land in `docs/DEPLOY.md` (new) or as a section in `README.md` quickstart.
+
 ### Other items that will accumulate here
 
 Drop new ones below as they come up during Phase 4.5 / 5. Anything that's "we should do this eventually but not while target is moving" → goes here.
