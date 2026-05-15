@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   CartesianGrid,
   Line,
@@ -38,9 +38,11 @@ export interface WeightChartProps {
   // selected" cue across all kittens that persists after the touch
   // ends (Recharts' own tooltip cursor disappears on touch-end).
   readonly selectedTime?: number | null
-  // Optional change handler: fires continuously while the user hovers
-  // or drags across the chart (and on tap). Receives the time (ms) of
-  // the closest data point. Caller maps that time to a session.
+  // Optional change handler: fires every time Recharts' tooltip changes
+  // its active label — covers desktop hover, mobile tap, AND mobile
+  // touchmove drag (unlike LineChart's onMouseMove prop, which only
+  // catches mouse-style events). Receives time (ms) of the closest
+  // data point. Caller maps that time to a session.
   readonly onTimeChange?: (time: number) => void
 }
 
@@ -60,6 +62,81 @@ function formatTimeTick(millis: number, now: number): string {
 
 function formatGramsTick(grams: number): string {
   return `${Math.round(grams)}g`
+}
+
+// Recharts passes these props to a Tooltip's `content` element.
+interface TooltipContentProps {
+  readonly active?: boolean
+  readonly label?: string | number
+  readonly payload?: ReadonlyArray<{
+    readonly name?: string | number
+    readonly value?: string | number
+    readonly color?: string
+  }>
+}
+
+interface TrackingTooltipProps extends TooltipContentProps {
+  readonly onLabelChange?: (label: number) => void
+}
+
+// Custom tooltip content. Renders the same visual treatment as the
+// default Recharts tooltip, AND notifies the parent of every active-
+// label change via a useEffect. Using a custom content element is the
+// canonical Recharts pattern for "react to tooltip state" — and unlike
+// the LineChart's onMouseMove prop, it fires reliably on touchmove
+// drags as well as mouse moves and taps.
+function TrackingTooltip({
+  active,
+  label,
+  payload,
+  onLabelChange,
+}: TrackingTooltipProps) {
+  const millis =
+    typeof label === 'number' ? label : label !== undefined ? Number(label) : NaN
+
+  useEffect(() => {
+    if (active !== true) return
+    if (!Number.isFinite(millis)) return
+    onLabelChange?.(millis)
+  }, [active, millis, onLabelChange])
+
+  if (active !== true || !Number.isFinite(millis)) return null
+
+  const labelText = new Date(millis).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+
+  return (
+    <div
+      style={{
+        background: '#161616',
+        border: '1px solid #2a2a2a',
+        borderRadius: 6,
+        fontSize: 14,
+        padding: '6px 10px',
+        color: '#fff',
+      }}
+    >
+      <div style={{ marginBottom: 4 }}>{labelText}</div>
+      {(payload ?? []).map((p, i) => {
+        const num =
+          typeof p.value === 'number'
+            ? p.value
+            : p.value !== undefined
+              ? Number(p.value)
+              : NaN
+        const grams = Number.isFinite(num) ? `${String(Math.round(num))}g` : '—'
+        return (
+          <div key={i} style={{ color: p.color ?? '#fff' }}>
+            {String(p.name ?? '')}: {grams}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export function WeightChart({
@@ -84,31 +161,7 @@ export function WeightChart({
   return (
     <div className={styles.wrap}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          margin={{ top: 8, right: 16, bottom: 8, left: 4 }}
-          // Mirror Recharts' own tooltip cursor: hover/drag/tap all
-          // update selection to the closest data point's X. State
-          // updates bail out via React when the same session would be
-          // re-selected, so per-pixel mousemove is cheap.
-          onMouseMove={(state) => {
-            if (onTimeChange === undefined) return
-            const raw = (state as { activeLabel?: string | number | undefined })
-              .activeLabel
-            if (raw === undefined) return
-            const t = typeof raw === 'number' ? raw : Number(raw)
-            if (Number.isFinite(t)) onTimeChange(t)
-          }}
-          onClick={(state) => {
-            // Safety net for environments where a tap doesn't also fire
-            // mousemove (some touch implementations). Same handler.
-            if (onTimeChange === undefined) return
-            const raw = (state as { activeLabel?: string | number | undefined })
-              .activeLabel
-            if (raw === undefined) return
-            const t = typeof raw === 'number' ? raw : Number(raw)
-            if (Number.isFinite(t)) onTimeChange(t)
-          }}
-        >
+        <LineChart margin={{ top: 8, right: 16, bottom: 8, left: 4 }}>
           <CartesianGrid stroke="#2a2a2a" strokeDasharray="3 3" />
           <XAxis
             type="number"
@@ -128,27 +181,13 @@ export function WeightChart({
             width={48}
           />
           <Tooltip
-            contentStyle={{
-              background: '#161616',
-              border: '1px solid #2a2a2a',
-              borderRadius: 6,
-              fontSize: 14,
-            }}
-            labelFormatter={(label) => {
-              const millis = typeof label === 'number' ? label : Number(label)
-              if (!Number.isFinite(millis)) return ''
-              return new Date(millis).toLocaleString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })
-            }}
-            formatter={(value, name) => {
-              const num = typeof value === 'number' ? value : Number(value)
-              const grams = Number.isFinite(num) ? `${Math.round(num)}g` : '—'
-              return [grams, String(name)]
-            }}
+            content={
+              <TrackingTooltip
+                {...(onTimeChange !== undefined
+                  ? { onLabelChange: onTimeChange }
+                  : {})}
+              />
+            }
           />
           {selectedTime !== undefined &&
             selectedTime !== null &&
