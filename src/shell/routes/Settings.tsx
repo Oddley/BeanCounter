@@ -11,8 +11,9 @@ import {
   clearStoredFolder,
   getStoredFolderId,
   getStoredFolderName,
+  openDriveShareDialog,
 } from '../auth'
-import { DriveError, sharePermission } from '../drive'
+import { DriveError } from '../drive'
 import {
   setSyncState,
   useSyncState,
@@ -27,10 +28,13 @@ import { buildInviteUrl } from '../../core/invite'
 import { usePwaStatus, applyPendingUpdate } from '../pwa'
 import styles from './Settings.module.css'
 
-type InviteState =
+// Invite UX state: brief notices after Mama performs each step
+// (opening the Drive share dialog or copying/sharing the link).
+type InviteNotice =
   | { kind: 'idle' }
-  | { kind: 'sending' }
-  | { kind: 'success'; email: string }
+  | { kind: 'link-copied' }
+  | { kind: 'dialog-opened' }
+  | { kind: 'shared-link' }
   | { kind: 'error'; message: string }
 
 type Step =
@@ -71,8 +75,9 @@ export function Settings() {
   const syncState = useSyncState()
   const pwaStatus = usePwaStatus()
   const [step, setStep] = useState<Step>({ kind: 'idle' })
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteState, setInviteState] = useState<InviteState>({ kind: 'idle' })
+  const [inviteNotice, setInviteNotice] = useState<InviteNotice>({
+    kind: 'idle',
+  })
   const authConfigured = isAuthConfigured()
   const pickerConfigured = isPickerConfigured()
   const fullyConfigured = authConfigured && pickerConfigured
@@ -220,56 +225,57 @@ export function Settings() {
     setSyncState({ status: 'offline', errorMessage: '' })
   }
 
-  const handleSendInvite = async () => {
+  // Build the invite URL once per render. It only depends on stable
+  // stored-folder state, and we use it in three places (copy, share,
+  // display).
+  const inviteUrl = (() => {
     const folderId = getStoredFolderId()
     const folderName = getStoredFolderName()
-    if (folderId === null || folderName === null) {
-      setInviteState({
+    if (folderId === null || folderName === null) return null
+    return buildInviteUrl({
+      origin: window.location.origin,
+      folderId,
+      folderName,
+    })
+  })()
+
+  const copyInviteLink = async (): Promise<boolean> => {
+    if (inviteUrl === null) return false
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const handleOpenShareDialog = async () => {
+    const folderId = getStoredFolderId()
+    if (folderId === null) {
+      setInviteNotice({
         kind: 'error',
         message: 'Connect to a folder before inviting others.',
       })
       return
     }
-    const email = inviteEmail.trim()
-    if (!email.includes('@') || email.length < 3) {
-      setInviteState({
-        kind: 'error',
-        message: 'Enter a valid email address.',
-      })
-      return
-    }
-
-    setInviteState({ kind: 'sending' })
     try {
-      // Prefer the cached token from the existing session — that token
-      // carries the per-file authorization granted when the user
-      // originally picked the folder via the Picker. A fresh
-      // requestToken() issues a new token that, in practice, lacks that
-      // per-file access list and gets a 404 from permissions endpoints.
-      // Fall back to requestToken (with its consent popup) only if the
-      // cached token is missing or expired.
+      // Use the cached session token — same token that has Picker-
+      // granted access to this folder. Drive's share dialog needs it to
+      // identify the file; the actual permission grant happens between
+      // the user's session cookies and Drive, not through this token.
       let token = await getValidToken()
       if (token === null) {
         const fresh = await requestToken()
         token = fresh.accessToken
       }
-      const inviteUrl = buildInviteUrl({
-        origin: window.location.origin,
-        folderId,
-        folderName,
-      })
-      const message =
-        `You've been invited to share a Bean Counter household.\n\n` +
-        `To accept, tap this link on your phone:\n${inviteUrl}\n\n` +
-        `Sign in with this Google account (the one this email was sent to).`
-      await sharePermission(token, {
-        fileId: folderId,
-        email,
-        emailMessage: message,
-        role: 'writer',
-      })
-      setInviteState({ kind: 'success', email })
-      setInviteEmail('')
+      // Copy the invite link to clipboard FIRST so Mama can paste it
+      // into Drive's optional message field if she wants the link in
+      // the same email as the share notification.
+      const copied = await copyInviteLink()
+      await openDriveShareDialog(token, folderId)
+      setInviteNotice(
+        copied ? { kind: 'link-copied' } : { kind: 'dialog-opened' },
+      )
     } catch (err) {
       const errorMessage =
         err instanceof DriveError
@@ -277,8 +283,65 @@ export function Settings() {
           : err instanceof Error
             ? err.message
             : 'Unknown error'
-      setInviteState({ kind: 'error', message: errorMessage })
+      setInviteNotice({ kind: 'error', message: errorMessage })
     }
+  }
+
+  const handleCopyInviteLink = async () => {
+    const ok = await copyInviteLink()
+    if (ok) {
+      setInviteNotice({ kind: 'link-copied' })
+    } else {
+      setInviteNotice({
+        kind: 'error',
+        message: "Couldn't copy to clipboard. Long-press the link to copy.",
+      })
+    }
+  }
+
+  const handleShareInviteLink = async () => {
+    if (inviteUrl === null) return
+    const folderName = getStoredFolderName() ?? 'this Bean Counter household'
+    const shareData = {
+      title: 'Bean Counter invite',
+      text: `Join "${folderName}" on Bean Counter to share kitten weights:`,
+      url: inviteUrl,
+    }
+    // Web Share API isn't universal — fall back to clipboard if
+    // navigator.share is missing or the user cancels (which throws
+    // AbortError, not a real failure to surface).
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share(shareData)
+        setInviteNotice({ kind: 'shared-link' })
+        return
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        // Fall through to clipboard fallback on other failures
+      }
+    }
+    const copied = await copyInviteLink()
+    setInviteNotice(
+      copied
+        ? { kind: 'link-copied' }
+        : {
+            kind: 'error',
+            message: "Couldn't share or copy. Long-press the link to copy.",
+          },
+    )
+  }
+
+  // Void-wrapping onClick handlers so the JSX prop type stays
+  // void-returning (matches the project's existing pattern in
+  // Invite.tsx etc.).
+  const onOpenShareDialog = () => {
+    void handleOpenShareDialog()
+  }
+  const onCopyInviteLink = () => {
+    void handleCopyInviteLink()
+  }
+  const onShareInviteLink = () => {
+    void handleShareInviteLink()
   }
 
   const handleSyncNow = async () => {
@@ -502,50 +565,65 @@ export function Settings() {
           )}
         </section>
 
-        {fullyConfigured && step.kind === 'connected' && (
+        {fullyConfigured && step.kind === 'connected' && inviteUrl !== null && (
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Invite a caregiver</h2>
             <p className={styles.muted}>
-              Share this household with another foster caregiver. They&apos;ll
-              receive an email from Google with a link to join. Both devices
-              will sync the same data.
+              Share this household with another foster caregiver. Both
+              devices will sync the same data. Inviting takes two pieces —
+              they can be done in any order:
             </p>
-            <label className={styles.inviteLabel}>
-              Their email address
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={inviteEmail}
-                onChange={(e) => {
-                  setInviteEmail(e.target.value)
-                  if (inviteState.kind !== 'idle') {
-                    setInviteState({ kind: 'idle' })
-                  }
-                }}
-                disabled={inviteState.kind === 'sending'}
-                placeholder="caregiver@example.com"
-                className={styles.inviteInput}
-              />
-            </label>
-            <Button
-              onClick={handleSendInvite}
-              disabled={
-                inviteState.kind === 'sending' || inviteEmail.trim() === ''
-              }
-              className={styles.inviteButton}
-            >
-              {inviteState.kind === 'sending' ? 'Sending…' : 'Send invite'}
-            </Button>
-            {inviteState.kind === 'success' && (
+
+            <ol className={styles.inviteSteps}>
+              <li>
+                <strong>Share the Drive folder</strong> so they can access
+                its data.{' '}
+                <span className={styles.muted}>
+                  Tapping below copies the invite link to your clipboard
+                  and opens Drive&apos;s sharing dialog. Paste into the
+                  &quot;Message&quot; field there if you want it in the
+                  same email Drive sends.
+                </span>
+              </li>
+              <li>
+                <strong>Send them the invite link</strong> so Bean Counter
+                knows what to set up on their phone.
+              </li>
+            </ol>
+
+            <div className={styles.inviteButtons}>
+              <Button onClick={onOpenShareDialog}>
+                Open Drive share dialog
+              </Button>
+              <Button variant="secondary" onClick={onShareInviteLink}>
+                Share invite link…
+              </Button>
+              <Button variant="secondary" onClick={onCopyInviteLink}>
+                Copy invite link
+              </Button>
+            </div>
+
+            <div className={styles.inviteLinkBox}>
+              <code className={styles.inviteLinkText}>{inviteUrl}</code>
+            </div>
+
+            {inviteNotice.kind === 'link-copied' && (
               <p className={styles.success}>
-                ✓ Invite sent to <strong>{inviteState.email}</strong>. They
-                should check their email (including spam) for a message from
-                Google Drive with a link.
+                ✓ Invite link copied to clipboard. Paste it into Drive&apos;s
+                message field, a text to your caregiver, or wherever.
               </p>
             )}
-            {inviteState.kind === 'error' && (
-              <p className={styles.error}>{inviteState.message}</p>
+            {inviteNotice.kind === 'dialog-opened' && (
+              <p className={styles.muted}>
+                Drive share dialog opened. Couldn&apos;t auto-copy the link;
+                tap Copy invite link to copy it.
+              </p>
+            )}
+            {inviteNotice.kind === 'shared-link' && (
+              <p className={styles.success}>✓ Invite link shared.</p>
+            )}
+            {inviteNotice.kind === 'error' && (
+              <p className={styles.error}>{inviteNotice.message}</p>
             )}
           </section>
         )}

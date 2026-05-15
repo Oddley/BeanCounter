@@ -74,12 +74,28 @@ export interface GapiNamespace {
   load(api: string, config: GapiLoadConfig | (() => void)): void
 }
 
+// Drive Share Client — Google's native share-dialog widget. Loaded via
+// gapi.load('drive-share'). Lets us pop Drive's standard share UI for a
+// folder without making any permissions.create API calls ourselves;
+// Drive handles the grant through the user's session cookies.
+
+export interface DriveShareClient {
+  setOAuthToken(token: string): void
+  setItemIds(ids: readonly string[]): void
+  showSettingsDialog(): void
+}
+
+export interface DriveShareNamespace {
+  ShareClient: new () => DriveShareClient
+}
+
 declare global {
   interface Window {
     gapi?: GapiNamespace
     google?: {
       accounts?: { oauth2?: GsiOAuth2 }
       picker?: PickerNamespace
+      drive?: { share?: DriveShareNamespace }
     }
   }
 }
