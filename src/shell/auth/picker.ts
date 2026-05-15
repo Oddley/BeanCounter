@@ -64,8 +64,17 @@ export interface PickedFolder {
   readonly name: string
 }
 
+export interface PickFolderOptions {
+  // When true, present the "Shared with me" view first. Useful in the
+  // invite-accept flow where the target folder lives on the inviter's
+  // Drive and appears under Shared with me on the recipient's side.
+  // Default false — fresh-connect flow opens My Drive first.
+  readonly preferSharedView?: boolean
+}
+
 export async function pickFolder(
   accessToken: string,
+  options: PickFolderOptions = {},
 ): Promise<PickedFolder | null> {
   const apiKey = getApiKey()
   if (!apiKey) {
@@ -92,12 +101,21 @@ export async function pickFolder(
         .setMimeTypes(FOLDER_MIME)
         .setOwnedByMe(false)
 
-      const built = new picker.PickerBuilder()
+      const builder = new picker.PickerBuilder()
         .setOAuthToken(accessToken)
         .setDeveloperKey(apiKey)
         .setTitle('Choose a Bean Counter folder')
-        .addView(myDriveView)
-        .addView(sharedView)
+
+      // The first view passed to addView becomes the initially-shown
+      // tab in the Picker UI. For the invite-accept flow we want
+      // "Shared with me" first; for fresh connect, "My Drive" first.
+      if (options.preferSharedView === true) {
+        builder.addView(sharedView).addView(myDriveView)
+      } else {
+        builder.addView(myDriveView).addView(sharedView)
+      }
+
+      const built = builder
         .setCallback((data: PickerCallbackData) => {
           if (data.action === picker.Action.PICKED) {
             const doc = data.docs?.[0]

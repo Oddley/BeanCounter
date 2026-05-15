@@ -9,7 +9,12 @@ export {
   type AuthToken,
 } from './gsi'
 
-export { pickFolder, isPickerConfigured, type PickedFolder } from './picker'
+export {
+  pickFolder,
+  isPickerConfigured,
+  type PickedFolder,
+  type PickFolderOptions,
+} from './picker'
 
 export {
   getStoredFolderId,

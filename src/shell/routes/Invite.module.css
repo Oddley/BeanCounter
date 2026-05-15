@@ -1,0 +1,69 @@
+.main {
+  padding: var(--space-4);
+}
+
+.heading {
+  font-size: 1.2rem;
+  margin: 0 0 var(--space-3) 0;
+}
+
+.invitePanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.invitePanel > button {
+  width: 100%;
+}
+
+.acceptButton {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.muted {
+  color: var(--color-fg-muted);
+  font-size: 0.9rem;
+}
+
+.warning {
+  padding: var(--space-3);
+  border: 1px solid #ff6b6b;
+  border-radius: var(--radius);
+  background: rgba(255, 107, 107, 0.08);
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.warning > button {
+  width: 100%;
+}
+
+.success {
+  color: #4ade80;
+  margin-top: var(--space-3);
+}
+
+.error {
+  color: #ff6b6b;
+}
+
+.errorPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.errorPanel > button {
+  width: 100%;
+}
+
+.notConfigured {
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: #161616;
+}
