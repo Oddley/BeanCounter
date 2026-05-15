@@ -7,6 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // We register the SW ourselves via shell/pwa/register.ts so we can
+      // surface lifecycle state (registered / checking / needs-refresh)
+      // in the Settings UI. Without 'false' here, the plugin would also
+      // auto-inject registerSW.js into index.html and we'd double-register.
+      injectRegister: false,
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: 'Bean Counter',

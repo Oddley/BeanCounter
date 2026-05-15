@@ -24,6 +24,7 @@ import {
   type InspectionResult,
 } from '../sync'
 import { buildInviteUrl } from '../../core/invite'
+import { usePwaStatus, applyPendingUpdate } from '../pwa'
 import styles from './Settings.module.css'
 
 type InviteState =
@@ -68,6 +69,7 @@ type Step =
 
 export function Settings() {
   const syncState = useSyncState()
+  const pwaStatus = usePwaStatus()
   const [step, setStep] = useState<Step>({ kind: 'idle' })
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteState, setInviteState] = useState<InviteState>({ kind: 'idle' })
@@ -547,6 +549,39 @@ export function Settings() {
             )}
           </section>
         )}
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>App version</h2>
+          {pwaStatus.registrationError !== null && (
+            <p className={styles.error}>
+              Couldn&apos;t check for updates: {pwaStatus.registrationError}
+            </p>
+          )}
+          {pwaStatus.registrationError === null &&
+            pwaStatus.needsRefresh && (
+              <>
+                <p className={styles.dirtyBanner}>
+                  ● A new version is ready. Reload to apply it.
+                </p>
+                <Button onClick={applyPendingUpdate} className={styles.connectButton}>
+                  Reload to update
+                </Button>
+              </>
+            )}
+          {pwaStatus.registrationError === null &&
+            !pwaStatus.needsRefresh &&
+            pwaStatus.registeredAt === 0 && (
+              <p className={styles.muted}>Checking for updates…</p>
+            )}
+          {pwaStatus.registrationError === null &&
+            !pwaStatus.needsRefresh &&
+            pwaStatus.registeredAt > 0 && (
+              <p className={styles.muted}>
+                ✓ Up to date — last checked{' '}
+                {formatRelative(pwaStatus.lastCheckedAt)}.
+              </p>
+            )}
+        </section>
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Diagnostics</h2>

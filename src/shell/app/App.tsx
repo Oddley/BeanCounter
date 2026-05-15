@@ -19,6 +19,7 @@ import {
 } from '../routes'
 import { hasStoredConnection } from '../auth'
 import { attemptBootReconnect, isDirty, runSync } from '../sync'
+import { installPwaRegistration } from '../pwa'
 
 // Layout wrapper that fires a silent sync on every navigation if local
 // has unpublished changes. This is the entirety of the "sync on save"
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
 export function App() {
   useEffect(() => {
     attemptBootReconnect()
+    installPwaRegistration()
   }, [])
 
   return <RouterProvider router={router} />
