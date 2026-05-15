@@ -11,6 +11,7 @@ import {
   LitterDetail,
   NewLitter,
   FeedingSession,
+  EditFeeding,
   LitterGraph,
   Settings,
   Invite,
@@ -44,6 +45,10 @@ const router = createBrowserRouter([
       { path: '/litters/new', element: <NewLitter /> },
       { path: '/litters/:id', element: <LitterDetail /> },
       { path: '/litters/:litterId/feed', element: <FeedingSession /> },
+      {
+        path: '/litters/:litterId/edit-feeding/:sessionId',
+        element: <EditFeeding />,
+      },
       { path: '/litters/:id/graph', element: <LitterGraph /> },
       { path: '/settings', element: <Settings /> },
       { path: '/invite', element: <Invite /> },

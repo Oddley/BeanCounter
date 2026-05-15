@@ -30,3 +30,19 @@
 .clearFocus:active {
   background: var(--color-border);
 }
+
+.editBar {
+  margin-top: var(--space-4);
+}
+
+.editBar > button {
+  width: 100%;
+}
+
+.editHint {
+  color: var(--color-fg-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 0;
+  padding: var(--space-2);
+}

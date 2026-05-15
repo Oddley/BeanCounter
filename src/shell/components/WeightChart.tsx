@@ -3,6 +3,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -32,6 +33,14 @@ export interface WeightChartProps {
   readonly seriesList: readonly KittenSeries[]
   readonly xRange: AxisRange
   readonly yRange: AxisRange
+  // Optional selection: when present, draws a vertical reference line
+  // at this time (in ms) so the user has a clear "this feeding is
+  // selected" cue across all kittens. Set via onTimeClick.
+  readonly selectedTime?: number | null
+  // Optional click handler: fires when the user taps the chart with
+  // the time (in ms) of the closest data point's X. Caller maps that
+  // time to a session.
+  readonly onTimeClick?: (time: number) => void
 }
 
 function formatTimeTick(millis: number, now: number): string {
@@ -52,7 +61,13 @@ function formatGramsTick(grams: number): string {
   return `${Math.round(grams)}g`
 }
 
-export function WeightChart({ seriesList, xRange, yRange }: WeightChartProps) {
+export function WeightChart({
+  seriesList,
+  xRange,
+  yRange,
+  selectedTime,
+  onTimeClick,
+}: WeightChartProps) {
   const now = useMemo(() => Date.now(), [])
 
   const hasAnyPoints = seriesList.some((s) => s.points.length > 0)
@@ -68,7 +83,17 @@ export function WeightChart({ seriesList, xRange, yRange }: WeightChartProps) {
   return (
     <div className={styles.wrap}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart margin={{ top: 8, right: 16, bottom: 8, left: 4 }}>
+        <LineChart
+          margin={{ top: 8, right: 16, bottom: 8, left: 4 }}
+          onClick={(state) => {
+            if (onTimeClick === undefined) return
+            const raw = (state as { activeLabel?: string | number | undefined })
+              .activeLabel
+            if (raw === undefined) return
+            const t = typeof raw === 'number' ? raw : Number(raw)
+            if (Number.isFinite(t)) onTimeClick(t)
+          }}
+        >
           <CartesianGrid stroke="#2a2a2a" strokeDasharray="3 3" />
           <XAxis
             type="number"
@@ -110,6 +135,16 @@ export function WeightChart({ seriesList, xRange, yRange }: WeightChartProps) {
               return [grams, String(name)]
             }}
           />
+          {selectedTime !== undefined &&
+            selectedTime !== null &&
+            Number.isFinite(selectedTime) && (
+              <ReferenceLine
+                x={selectedTime}
+                stroke="#f5b400"
+                strokeWidth={2}
+                ifOverflow="extendDomain"
+              />
+            )}
           {seriesList
             .filter((s) => s.points.length > 0)
             .map((s) => (

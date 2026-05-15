@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import {
   AppBar,
+  Button,
   GraphModeToggle,
   KittenLegend,
   WeightChart,
@@ -18,9 +19,27 @@ import {
   yAxisRange,
   type GraphMode,
 } from '../../core/graph'
+import { effectiveRecordedAt } from '../../core/session'
+import { isSameLocalDay } from '../../core/time'
 import styles from './LitterGraph.module.css'
 
+function formatFeedingTime(millis: number, now: number): string {
+  if (isSameLocalDay(millis, now)) {
+    return new Date(millis).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }
+  return new Date(millis).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 export function LitterGraph() {
+  const navigate = useNavigate()
   const { id: litterId = '' } = useParams<{ id: string }>()
   const litter = useLitter(litterId)
   const activeKittens = useActiveKittens(litterId)
@@ -29,6 +48,17 @@ export function LitterGraph() {
 
   const [mode, setMode] = useState<GraphMode>('rough')
   const [focusedKittenId, setFocusedKittenId] = useState<string | null>(null)
+  // Selected feeding session (for the Edit affordance). Cleared when the
+  // graph mode changes (smooth points aren't 1:1 with sessions, so the
+  // concept doesn't apply there). Tapping the same selection clears it.
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  )
+  // "now" is only used to decide whether the selected feeding's time
+  // formats as time-of-day or with a date prefix. Stable for the
+  // lifetime of this view is fine. Declared up here (before any early
+  // return) so hook order is consistent across renders.
+  const now = useMemo<number>(() => Date.now(), [])
 
   const loading =
     litter === undefined ||
@@ -98,7 +128,7 @@ export function LitterGraph() {
       <>
         <AppBar title="Not found" backTo="/litters" />
         <main className={styles.main}>
-          <p className={styles.muted}>This litter doesn't exist.</p>
+          <p className={styles.muted}>This litter doesn&apos;t exist.</p>
           <Link to="/litters">Back to litters</Link>
         </main>
       </>
@@ -109,17 +139,59 @@ export function LitterGraph() {
     setFocusedKittenId((current) => (current === kittenId ? null : kittenId))
   }
 
+  // Map a clicked X-axis time to the session that recorded at (or
+  // nearest to) that time. Only meaningful in rough mode, where each
+  // point corresponds to exactly one session.
+  const litterSessions = (allSessions ?? []).filter(
+    (s) => s.litterId === litterId,
+  )
+  const handleTimeClick = (time: number) => {
+    if (mode !== 'rough') return
+    if (litterSessions.length === 0) return
+    let best = litterSessions[0]
+    if (best === undefined) return
+    let bestDelta = Math.abs(effectiveRecordedAt(best) - time)
+    for (const s of litterSessions) {
+      const delta = Math.abs(effectiveRecordedAt(s) - time)
+      if (delta < bestDelta) {
+        best = s
+        bestDelta = delta
+      }
+    }
+    // Toggle off if tapping the already-selected one
+    setSelectedSessionId((current) => (current === best.id ? null : best.id))
+  }
+
+  // When the user switches modes we drop selection — smooth-mode points
+  // aren't single feedings, so the concept doesn't apply there.
+  const handleModeChange = (next: GraphMode) => {
+    if (next !== mode) {
+      setSelectedSessionId(null)
+    }
+    setMode(next)
+  }
+
+  const selectedSession =
+    selectedSessionId !== null
+      ? litterSessions.find((s) => s.id === selectedSessionId)
+      : undefined
+  const selectedTime =
+    selectedSession !== undefined ? effectiveRecordedAt(selectedSession) : null
+
   return (
     <>
       <AppBar title={`${litter.name} — graph`} backTo={`/litters/${litterId}`} />
       <main className={styles.main}>
         <div className={styles.toolbar}>
-          <GraphModeToggle mode={mode} onChange={setMode} />
+          <GraphModeToggle mode={mode} onChange={handleModeChange} />
           {focusedKittenId !== null && (
             <button
               type="button"
               className={styles.clearFocus}
-              onClick={() => setFocusedKittenId(null)}
+              onClick={() => {
+                setFocusedKittenId(null)
+                setSelectedSessionId(null)
+              }}
             >
               Show all
             </button>
@@ -130,6 +202,8 @@ export function LitterGraph() {
           seriesList={seriesForChart}
           xRange={xRange}
           yRange={yRange}
+          selectedTime={selectedTime}
+          onTimeClick={handleTimeClick}
         />
 
         <KittenLegend
@@ -137,6 +211,26 @@ export function LitterGraph() {
           focusedKittenId={focusedKittenId}
           onToggleFocus={handleToggleFocus}
         />
+
+        {mode === 'rough' && (
+          <div className={styles.editBar}>
+            {selectedSession !== undefined && selectedTime !== null ? (
+              <Button
+                onClick={() => {
+                  void navigate(
+                    `/litters/${litterId}/edit-feeding/${selectedSession.id}`,
+                  )
+                }}
+              >
+                Edit feeding at {formatFeedingTime(selectedTime, now)}
+              </Button>
+            ) : (
+              <p className={styles.editHint}>
+                Tap a feeding on the graph to edit it.
+              </p>
+            )}
+          </div>
+        )}
       </main>
     </>
   )

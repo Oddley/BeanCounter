@@ -265,7 +265,7 @@ export function FeedingSession() {
 
             <div className={styles.finish}>
               <Button onClick={handleFinish} disabled={!allFilledIn}>
-                Finish weights
+                Submit
               </Button>
             </div>
           </>
