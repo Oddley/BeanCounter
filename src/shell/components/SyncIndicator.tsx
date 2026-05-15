@@ -10,26 +10,36 @@ interface IndicatorDisplay {
 
 function displayFor(status: SyncStatus): IndicatorDisplay {
   switch (status) {
-    case 'unconnected':
+    case 'offline':
       return {
-        icon: '⊘',
-        label: 'Not connected to Drive',
-        className: styles.unconnected ?? '',
+        icon: '⚙',
+        label: 'Drive sync not configured — tap to set up',
+        className: styles.offline ?? '',
       }
-    case 'pending':
+    case 'syncing':
       return {
-        icon: '⋯',
-        label: 'Sync pending',
-        className: styles.pending ?? '',
+        icon: '⟳',
+        label: 'Syncing to Drive…',
+        className: styles.syncing ?? '',
+      }
+    case 'error':
+      return {
+        icon: '!',
+        label: 'Sync failed — changes saved locally',
+        className: styles.error ?? '',
+      }
+    case 'dirty':
+      return {
+        icon: '●',
+        label: 'Unpublished local changes',
+        className: styles.dirty ?? '',
       }
     case 'synced':
       return {
         icon: '✓',
-        label: 'Synced',
+        label: 'Synced to Drive',
         className: styles.synced ?? '',
       }
-    case 'error':
-      return { icon: '!', label: 'Sync error', className: styles.error ?? '' }
   }
 }
 

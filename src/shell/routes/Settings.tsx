@@ -126,14 +126,14 @@ export function Settings() {
   // Fresh connect: pick a folder via the Picker, then inspect+branch.
   const handleFreshConnect = async () => {
     setStep({ kind: 'connecting' })
-    setSyncState({ status: 'pending', errorMessage: '' })
+    setSyncState({ status: 'syncing', errorMessage: '' })
     try {
       const token = await requestToken()
       setStep({ kind: 'picking', accessToken: token.accessToken })
       const folder = await pickFolder(token.accessToken)
       if (folder === null) {
         setStep({ kind: 'disconnected' })
-        setSyncState({ status: 'unconnected', errorMessage: '' })
+        setSyncState({ status: 'offline', errorMessage: '' })
         return
       }
       setStoredFolder(folder.id, folder.name)
@@ -153,7 +153,7 @@ export function Settings() {
       return
     }
     setStep({ kind: 'connecting' })
-    setSyncState({ status: 'pending', errorMessage: '' })
+    setSyncState({ status: 'syncing', errorMessage: '' })
     try {
       const token = await requestToken()
       await inspectAndBranch(token.accessToken, storedId, storedName)
@@ -165,7 +165,7 @@ export function Settings() {
   const handlePushLocal = async () => {
     if (step.kind !== 'ready-push') return
     setStep({ kind: 'pushing', folderName: step.folderName })
-    setSyncState({ status: 'pending', errorMessage: '' })
+    setSyncState({ status: 'syncing', errorMessage: '' })
     try {
       await pushLocalToActive(step.accessToken, step.folderId)
       setSyncState({ status: 'synced', errorMessage: '' })
@@ -182,7 +182,7 @@ export function Settings() {
   const handleConfirmReplaceLocal = async () => {
     if (step.kind !== 'confirm-pull') return
     setStep({ kind: 'pulling', folderName: step.folderName })
-    setSyncState({ status: 'pending', errorMessage: '' })
+    setSyncState({ status: 'syncing', errorMessage: '' })
     try {
       await pullActiveToLocal(step.inspection.file)
       setSyncState({ status: 'synced', errorMessage: '' })
@@ -199,13 +199,13 @@ export function Settings() {
   const handleCancelPull = () => {
     clearStoredFolder()
     setStep({ kind: 'disconnected' })
-    setSyncState({ status: 'unconnected', errorMessage: '' })
+    setSyncState({ status: 'offline', errorMessage: '' })
   }
 
   const handleReset = () => {
     clearStoredFolder()
     setStep({ kind: 'disconnected' })
-    setSyncState({ status: 'unconnected', errorMessage: '' })
+    setSyncState({ status: 'offline', errorMessage: '' })
   }
 
   const handleSyncNow = async () => {
@@ -373,6 +373,18 @@ export function Settings() {
                   <p>
                     Connected to <strong>{step.folderName}</strong>.
                   </p>
+                  {syncState.status === 'dirty' && (
+                    <p className={styles.dirtyBanner}>
+                      ● You have unpublished local changes. They&apos;ll
+                      publish on the next navigation, or tap Sync now.
+                    </p>
+                  )}
+                  {syncState.status === 'error' && (
+                    <p className={styles.errorBanner}>
+                      ! Last sync failed — your changes are saved on this
+                      device only. Tap Sync now to try again.
+                    </p>
+                  )}
                   {syncState.lastSyncedAt > 0 && (
                     <p className={styles.muted}>
                       Last synced: {formatRelative(syncState.lastSyncedAt)}
@@ -386,10 +398,9 @@ export function Settings() {
                     </p>
                   )}
                   <p className={styles.muted}>
-                    Sync runs automatically after edits (60s debounce), on
-                    Finish-weights tap, and when the app returns to the
-                    foreground after &gt;10min away. Tap Sync now to force
-                    a sync, or Reconnect if the session expired.
+                    Sync runs on every navigation when you have unpublished
+                    changes, and on app start. Tap Sync now to force a
+                    sync, or Reconnect if the session expired.
                   </p>
                   <div className={styles.connectedButtons}>
                     <Button onClick={handleSyncNow}>Sync now</Button>
@@ -430,17 +441,19 @@ export function Settings() {
 }
 
 function labelFor(
-  status: 'unconnected' | 'pending' | 'synced' | 'error',
+  status: 'offline' | 'syncing' | 'error' | 'dirty' | 'synced',
 ): string {
   switch (status) {
-    case 'unconnected':
+    case 'offline':
       return 'Not connected'
-    case 'pending':
-      return 'Pending'
-    case 'synced':
-      return 'Connected'
+    case 'syncing':
+      return 'Syncing…'
     case 'error':
-      return 'Error'
+      return 'Sync failed'
+    case 'dirty':
+      return 'Unpublished changes'
+    case 'synced':
+      return 'Synced'
   }
 }
 

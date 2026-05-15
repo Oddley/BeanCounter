@@ -33,5 +33,3 @@ export {
   isDirty,
   getDirtySince,
 } from './dirty'
-
-export { installForegroundSync } from './foreground'

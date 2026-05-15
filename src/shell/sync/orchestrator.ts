@@ -14,7 +14,7 @@ import {
   snapshotLocal,
 } from './first-connect'
 import { setSyncState, getSyncState } from './state'
-import { clearDirty, setSuspended, setOnDebounce } from './dirty'
+import { clearDirty, getDirtySince, setSuspended } from './dirty'
 
 const ACTIVE_FILE_NAME = 'active.json'
 
@@ -28,7 +28,7 @@ let runInProgress: Promise<SyncRunResult> | null = null
 
 // Apply a merged snapshot to local Dexie. Wipes + bulk-adds because the
 // merged snapshot is the complete state. Wrapped in suspendDirty so the
-// resulting Dexie writes don't loop back into the dirty timer.
+// resulting Dexie writes don't loop back and mark the app dirty.
 async function applySnapshotToLocal(
   snapshot: ActiveFileSnapshot,
 ): Promise<void> {
@@ -85,8 +85,8 @@ export interface RunSyncOptions {
   // When true, fall back to interactive OAuth (consent popup) if silent
   // refresh fails. Caller MUST invoke this from a user-gesture handler
   // (button onClick, etc.) — browsers block popups otherwise.
-  // Default false: silent-only, suitable for background triggers
-  // (debounce, foreground-return) that mustn't surprise the user.
+  // Default false: silent-only, suitable for navigation-triggered and
+  // boot-triggered syncs that mustn't surprise the user with a popup.
   readonly allowInteractive?: boolean
 }
 
@@ -105,11 +105,16 @@ async function doRunSync(
 ): Promise<SyncRunResult> {
   const folderId = getStoredFolderId()
   if (folderId === null) {
-    setSyncState({ status: 'unconnected' })
+    setSyncState({ status: 'offline' })
     return { kind: 'no-folder' }
   }
 
-  setSyncState({ status: 'pending', errorMessage: '' })
+  setSyncState({ status: 'syncing', errorMessage: '' })
+
+  // Snapshot the dirty timestamp at the start of the run. If the user
+  // edits *during* the sync, getDirtySince() will move forward, and we
+  // detect that at the end to stay in 'dirty' rather than 'synced'.
+  const dirtyAtStart = getDirtySince()
 
   let token = await getValidToken()
   if (token === null && options.allowInteractive === true) {
@@ -172,7 +177,13 @@ async function doRunSync(
     await pushSnapshot(token, folderId, merged, existingFileId)
 
     const now = Date.now()
-    clearDirty()
+    // If a new edit landed during the sync, getDirtySince() moved
+    // forward. Preserve that signal — don't clearDirty, and label the
+    // resulting state 'dirty' so the next navigation re-syncs.
+    const editedMidSync = getDirtySince() > dirtyAtStart
+    if (!editedMidSync) {
+      clearDirty()
+    }
 
     if (conflicts.length > 0) {
       setSyncState({
@@ -180,6 +191,13 @@ async function doRunSync(
         errorMessage: `${String(conflicts.length)} merge conflict${conflicts.length === 1 ? '' : 's'}`,
         lastSyncedAt: now,
         conflictCount: conflicts.length,
+      })
+    } else if (editedMidSync) {
+      setSyncState({
+        status: 'dirty',
+        errorMessage: '',
+        lastSyncedAt: now,
+        conflictCount: 0,
       })
     } else {
       setSyncState({
@@ -202,14 +220,8 @@ async function doRunSync(
   }
 }
 
-// Track when the last sync attempt succeeded. Foreground-pull trigger
-// uses this to decide whether to re-pull on app foreground return.
+// Last successful sync timestamp (ms epoch). Used by Settings UI to
+// show "Last synced: 3m ago" — no longer drives any sync decisions.
 export function getLastSyncedAt(): number {
   return getSyncState().lastSyncedAt
 }
-
-// Wire the debounce timer in dirty.ts to the runner here. Fires once on
-// module import (which happens via shell/sync/index.ts -> App.tsx chain).
-setOnDebounce(() => {
-  void runSync()
-})

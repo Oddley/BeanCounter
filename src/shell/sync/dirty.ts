@@ -1,30 +1,24 @@
-// Tracks "local has unpushed changes" with a debounced auto-flush. The
-// orchestrator wires in the actual sync runner via `setOnDebounce` so
-// this module stays free of orchestrator imports (no circular deps).
+// Tracks "local has unpushed changes." Pure flag with no timer.
+//
+// Sync is triggered by explicit user moments (navigation, Finish-weights,
+// boot, manual Sync now) — not by a background debounce. This module
+// just answers "do we have unpushed changes?" so those triggers know
+// whether to fire a sync, and bumps the indicator from Synced → Dirty
+// the moment a local edit lands.
 
-const DEBOUNCE_MS = 60_000
+import { markStateDirtyIfSynced } from './state'
 
 let dirtyTimestamp = 0
-let timer: ReturnType<typeof setTimeout> | null = null
 let suspended = false
-let onDebounceCallback: () => void = () => {}
 
 export function markDirty(): void {
   if (suspended) return
   dirtyTimestamp = Date.now()
-  if (timer !== null) clearTimeout(timer)
-  timer = setTimeout(() => {
-    timer = null
-    onDebounceCallback()
-  }, DEBOUNCE_MS)
+  markStateDirtyIfSynced()
 }
 
 export function clearDirty(): void {
   dirtyTimestamp = 0
-  if (timer !== null) {
-    clearTimeout(timer)
-    timer = null
-  }
 }
 
 export function isDirty(): boolean {
@@ -39,10 +33,4 @@ export function getDirtySince(): number {
 // Dexie, so its own writes don't re-mark dirty in a loop.
 export function setSuspended(s: boolean): void {
   suspended = s
-}
-
-// Called by the orchestrator at module init to register the runner that
-// fires after the debounce window elapses.
-export function setOnDebounce(cb: () => void): void {
-  onDebounceCallback = cb
 }

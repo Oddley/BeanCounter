@@ -15,7 +15,7 @@
   margin: 0 0 var(--space-3) 0;
 }
 
-.unconnected {
+.offline {
   color: var(--color-fg-muted);
 }
 
@@ -23,12 +23,34 @@
   color: #4ade80;
 }
 
-.pending {
+.syncing {
   color: #60a5fa;
+}
+
+.dirty {
+  color: #fbbf24;
 }
 
 .error {
   color: #ff6b6b;
+}
+
+.dirtyBanner {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid #fbbf24;
+  border-radius: var(--radius);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+  margin: var(--space-3) 0;
+}
+
+.errorBanner {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid #ff6b6b;
+  border-radius: var(--radius);
+  background: rgba(255, 107, 107, 0.08);
+  color: #ff6b6b;
+  margin: var(--space-3) 0;
 }
 
 .notConfigured {
