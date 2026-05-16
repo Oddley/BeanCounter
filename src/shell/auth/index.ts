@@ -16,8 +16,6 @@ export {
   type PickFolderOptions,
 } from './picker'
 
-export { openDriveShareDialog } from './share'
-
 export {
   getStoredFolderId,
   getStoredFolderName,

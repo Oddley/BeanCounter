@@ -5,13 +5,11 @@ import {
   isAuthConfigured,
   isPickerConfigured,
   requestToken,
-  getValidToken,
   pickFolder,
   setStoredFolder,
   clearStoredFolder,
   getStoredFolderId,
   getStoredFolderName,
-  openDriveShareDialog,
 } from '../auth'
 import { DriveError } from '../drive'
 import {
@@ -249,7 +247,7 @@ export function Settings() {
     }
   }
 
-  const handleOpenShareDialog = async () => {
+  const handleOpenFolderInDrive = async () => {
     const folderId = getStoredFolderId()
     if (folderId === null) {
       setInviteNotice({
@@ -258,33 +256,18 @@ export function Settings() {
       })
       return
     }
-    try {
-      // Use the cached session token — same token that has Picker-
-      // granted access to this folder. Drive's share dialog needs it to
-      // identify the file; the actual permission grant happens between
-      // the user's session cookies and Drive, not through this token.
-      let token = await getValidToken()
-      if (token === null) {
-        const fresh = await requestToken()
-        token = fresh.accessToken
-      }
-      // Copy the invite link to clipboard FIRST so Mama can paste it
-      // into Drive's optional message field if she wants the link in
-      // the same email as the share notification.
-      const copied = await copyInviteLink()
-      await openDriveShareDialog(token, folderId)
-      setInviteNotice(
-        copied ? { kind: 'link-copied' } : { kind: 'dialog-opened' },
-      )
-    } catch (err) {
-      const errorMessage =
-        err instanceof DriveError
-          ? `Drive API error (${String(err.status)}): ${err.message}`
-          : err instanceof Error
-            ? err.message
-            : 'Unknown error'
-      setInviteNotice({ kind: 'error', message: errorMessage })
-    }
+    // Copy the invite link to clipboard FIRST so Mama can paste it
+    // wherever (Drive's optional message field, a text message, etc.).
+    const copied = await copyInviteLink()
+    // Open Drive's web UI to the folder. From there Mama uses Drive's
+    // native Share button (top right) to grant access. We tried the
+    // embedded ShareClient widget but it's deprecated and shows
+    // 'Sorry sharing is not available' to non-GCP-member users.
+    const driveUrl = `https://drive.google.com/drive/folders/${folderId}`
+    window.open(driveUrl, '_blank', 'noopener,noreferrer')
+    setInviteNotice(
+      copied ? { kind: 'link-copied' } : { kind: 'dialog-opened' },
+    )
   }
 
   const handleCopyInviteLink = async () => {
@@ -334,8 +317,8 @@ export function Settings() {
   // Void-wrapping onClick handlers so the JSX prop type stays
   // void-returning (matches the project's existing pattern in
   // Invite.tsx etc.).
-  const onOpenShareDialog = () => {
-    void handleOpenShareDialog()
+  const onOpenFolderInDrive = () => {
+    void handleOpenFolderInDrive()
   }
   const onCopyInviteLink = () => {
     void handleCopyInviteLink()
@@ -579,21 +562,23 @@ export function Settings() {
                 <strong>Share the Drive folder</strong> so they can access
                 its data.{' '}
                 <span className={styles.muted}>
-                  Tapping below copies the invite link to your clipboard
-                  and opens Drive&apos;s sharing dialog. Paste into the
-                  &quot;Message&quot; field there if you want it in the
-                  same email Drive sends.
+                  Tapping below opens the folder in Drive (in a new tab)
+                  and copies the invite link to your clipboard. Use
+                  Drive&apos;s Share button to add their email — paste
+                  the link into the &quot;Message&quot; field there if
+                  you want it delivered in the same email.
                 </span>
               </li>
               <li>
                 <strong>Send them the invite link</strong> so Bean Counter
-                knows what to set up on their phone.
+                knows what folder to sync to. You can use Drive&apos;s
+                message field (above) or send it any other way.
               </li>
             </ol>
 
             <div className={styles.inviteButtons}>
-              <Button onClick={onOpenShareDialog}>
-                Open Drive share dialog
+              <Button onClick={onOpenFolderInDrive}>
+                Open folder in Drive
               </Button>
               <Button variant="secondary" onClick={onShareInviteLink}>
                 Share invite link…
@@ -615,8 +600,8 @@ export function Settings() {
             )}
             {inviteNotice.kind === 'dialog-opened' && (
               <p className={styles.muted}>
-                Drive share dialog opened. Couldn&apos;t auto-copy the link;
-                tap Copy invite link to copy it.
+                Drive opened in a new tab. Couldn&apos;t auto-copy the link;
+                tap Copy invite link to copy it manually.
               </p>
             )}
             {inviteNotice.kind === 'shared-link' && (
