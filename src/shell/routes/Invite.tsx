@@ -5,7 +5,7 @@ import {
   isAuthConfigured,
   isPickerConfigured,
   requestToken,
-  pickFolder,
+  pickActiveFile,
   setStoredFolder,
   getStoredFolderName,
 } from '../auth'
@@ -26,14 +26,18 @@ import styles from './Invite.module.css'
 //
 // On arrival we show "Mama invited you to '<folderName>'", auth him in
 // against Google (user gesture so the OAuth popup is allowed), then
-// open the Picker pre-tabbed to "Shared with me" so he can confirm the
-// folder selection. After that, the existing inspectAndBranch path
-// (also used by fresh connect) handles push / silent-pull /
-// warn-then-pull.
+// open the Picker into the shared folder and have him pick the
+// active.json FILE (not the folder). After that, the existing
+// inspectAndBranch path (also used by fresh connect) handles push /
+// silent-pull / warn-then-pull.
 //
-// drive.file scope requires the user to explicitly select the file via
-// Picker before the app gets access — we can't shortcut that even when
-// we know the folder ID. The Picker IS the consent gesture.
+// Why pick the file, not the folder: drive.file scope grants per-file
+// access. Picking just the folder doesn't extend access to files
+// inside that the recipient's app didn't create. If we only picked
+// the folder, the listFiles query later would silently return empty
+// and BC would helpfully create a SECOND active.json — leading to two
+// disconnected copies in the same folder. Picking the file is the
+// canonical Drive way to grant the app access to it.
 
 type Step =
   | { kind: 'idle' }
@@ -95,9 +99,15 @@ export function Invite() {
       const token = await requestToken()
       setStep({ kind: 'picking', accessToken: token.accessToken })
 
-      const picked = await pickFolder(token.accessToken, {
-        preferSharedView: true,
-      })
+      // Pick the active.json FILE (not the folder). With drive.file
+      // scope, picking the folder doesn't grant access to files inside
+      // it — Papa needs to pick the file itself so his app's scope
+      // includes it. setParent in the Picker focuses the view on the
+      // invited folder so he sees only its contents.
+      const picked = await pickActiveFile(
+        token.accessToken,
+        expectedFolderId,
+      )
       if (picked === null) {
         // User cancelled picker — return to ready state so they can retry.
         setStep({
@@ -109,8 +119,13 @@ export function Invite() {
         return
       }
 
-      // Sanity check: did they pick the folder Mama actually invited?
-      if (picked.id !== expectedFolderId) {
+      // Sanity check: did they pick a file in the inviter's folder?
+      // setParent should constrain the Picker view, but the user could
+      // have navigated out before picking.
+      if (
+        picked.parentId !== undefined &&
+        picked.parentId !== expectedFolderId
+      ) {
         setStep({
           kind: 'mismatch',
           expectedName: expectedFolderName,
@@ -120,20 +135,31 @@ export function Invite() {
         return
       }
 
-      // Match — proceed with the existing inspect-and-branch flow.
-      setStoredFolder(picked.id, picked.name)
-      setStep({ kind: 'inspecting', folderName: picked.name })
-      const inspection = await inspectDrive(token.accessToken, picked.id)
+      // The picked file is now in our drive.file scope. Store the
+      // folder ID from the invite (we know it's correct) so the
+      // orchestrator's queries can find this same file going forward.
+      setStoredFolder(expectedFolderId, expectedFolderName)
+      setStep({ kind: 'inspecting', folderName: expectedFolderName })
+      const inspection = await inspectDrive(
+        token.accessToken,
+        expectedFolderId,
+      )
       if (inspection.kind === 'empty') {
-        // Shared folder is somehow empty — Mama hasn't pushed yet, or
-        // the link is wrong. Treat as success-but-no-data; the user's
-        // own next edit will populate.
+        // Shouldn't happen — Papa just picked active.json so the
+        // listFiles query should find it. If it doesn't, something
+        // unexpected is going on; surface as error rather than
+        // silently creating a duplicate file (the bug this fix
+        // resolves).
         setSyncState({
-          status: 'synced',
-          errorMessage: '',
-          lastSyncedAt: Date.now(),
+          status: 'error',
+          errorMessage:
+            "Couldn't find the file you picked. Try the invite link again.",
         })
-        setStep({ kind: 'success', folderName: picked.name })
+        setStep({
+          kind: 'error',
+          message:
+            "Picked active.json but Drive doesn't list it as a child of the invited folder. Re-try the invite link.",
+        })
         return
       }
       if (inspection.kind === 'unreadable') {
@@ -150,7 +176,7 @@ export function Invite() {
         setStep({
           kind: 'confirm-pull',
           file: inspection.file,
-          folderName: picked.name,
+          folderName: expectedFolderName,
         })
       } else {
         await pullActiveToLocal(inspection.file)
@@ -159,7 +185,7 @@ export function Invite() {
           errorMessage: '',
           lastSyncedAt: Date.now(),
         })
-        setStep({ kind: 'success', folderName: picked.name })
+        setStep({ kind: 'success', folderName: expectedFolderName })
       }
     } catch (err) {
       handleError(err)
@@ -249,9 +275,9 @@ export function Invite() {
               </p>
             )}
             <p className={styles.muted}>
-              When you tap Accept, you&apos;ll sign in to Google, then pick
-              the shared folder from a list. Look for it under{' '}
-              <strong>&quot;Shared with me&quot;</strong>.
+              When you tap Accept, you&apos;ll sign in to Google, then a
+              picker shows the contents of the shared folder. Tap{' '}
+              <strong>active.json</strong> to confirm.
             </p>
             <Button onClick={onAccept} className={styles.acceptButton}>
               Accept invitation
@@ -268,24 +294,26 @@ export function Invite() {
 
         {fullyConfigured && step.kind === 'picking' && (
           <p className={styles.muted}>
-            Pick the shared folder from the &quot;Shared with me&quot; tab…
+            Pick <strong>active.json</strong> from the file picker…
           </p>
         )}
 
         {fullyConfigured && step.kind === 'mismatch' && (
           <div className={styles.errorPanel}>
             <p>
-              <strong>That doesn&apos;t look like the invited folder.</strong>
+              <strong>That file isn&apos;t in the invited folder.</strong>
             </p>
             <p>
-              The invite was for <strong>{step.expectedName}</strong> but you
-              picked <strong>{step.pickedName}</strong>.
+              The invite was for a file in{' '}
+              <strong>{step.expectedName}</strong> but you picked{' '}
+              <strong>{step.pickedName}</strong> from somewhere else.
             </p>
             <p className={styles.muted}>
-              Try again and look for <strong>{step.expectedName}</strong>{' '}
-              under &quot;Shared with me&quot;. If you can&apos;t find it,
-              ask whoever invited you to re-share the folder with this Google
-              account.
+              Try again — the picker should open into{' '}
+              <strong>{step.expectedName}</strong>. Tap{' '}
+              <strong>active.json</strong> without navigating away. If
+              the folder isn&apos;t visible, ask whoever invited you to
+              re-share it with this Google account.
             </p>
             <Button onClick={onAccept}>Try again</Button>
             <Button variant="secondary" onClick={handleGoHome}>

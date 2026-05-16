@@ -72,6 +72,77 @@ export interface PickFolderOptions {
   readonly preferSharedView?: boolean
 }
 
+export interface PickedFile {
+  readonly id: string
+  readonly name: string
+  readonly parentId: string | undefined
+}
+
+// Pick a single JSON file inside a specific Drive folder. Used by the
+// invite-accept flow: drive.file scope grants the app access only to
+// files the user explicitly picks (or that the app itself created),
+// so the recipient must pick active.json directly — picking just the
+// containing folder isn't enough to make the file visible to listFiles.
+//
+// `setParent(expectedParentFolderId)` points the Picker into the
+// inviter's shared folder so the recipient sees only that folder's
+// contents without navigating Shared-with-me. Picker uses the user's
+// Drive session cookies for browsing (NOT the app's OAuth scope), so
+// this works even though the recipient's app doesn't have drive.file
+// access to the folder yet.
+export async function pickActiveFile(
+  accessToken: string,
+  expectedParentFolderId: string,
+): Promise<PickedFile | null> {
+  const apiKey = getApiKey()
+  if (!apiKey) {
+    throw new Error(
+      'Google API key is not configured — set VITE_GOOGLE_API_KEY in .env.local',
+    )
+  }
+  await loadPickerModule()
+  const picker = window.google?.picker
+  if (!picker) {
+    throw new Error('Google Picker library failed to initialize')
+  }
+
+  return new Promise<PickedFile | null>((resolve, reject) => {
+    try {
+      const view = new picker.DocsView()
+        .setMimeTypes('application/json')
+        .setParent(expectedParentFolderId)
+        .setLabel('Bean Counter file')
+
+      const built = new picker.PickerBuilder()
+        .setOAuthToken(accessToken)
+        .setDeveloperKey(apiKey)
+        .setTitle('Pick the Bean Counter data file (active.json)')
+        .addView(view)
+        .setCallback((data: PickerCallbackData) => {
+          if (data.action === picker.Action.PICKED) {
+            const doc = data.docs?.[0]
+            if (doc) {
+              resolve({
+                id: doc.id,
+                name: doc.name,
+                parentId: doc.parentId,
+              })
+            } else {
+              resolve(null)
+            }
+          } else if (data.action === picker.Action.CANCEL) {
+            resolve(null)
+          }
+        })
+        .build()
+
+      built.setVisible(true)
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error('Picker failed to open'))
+    }
+  })
+}
+
 export async function pickFolder(
   accessToken: string,
   options: PickFolderOptions = {},

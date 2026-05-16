@@ -11,8 +11,10 @@ export {
 
 export {
   pickFolder,
+  pickActiveFile,
   isPickerConfigured,
   type PickedFolder,
+  type PickedFile,
   type PickFolderOptions,
 } from './picker'
 

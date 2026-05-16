@@ -50,6 +50,10 @@ export interface PickerCallbackData {
     readonly id: string
     readonly name: string
     readonly mimeType: string
+    // Present when the picked item is a file (and Drive returns its
+    // immediate parent). Used by the invite-accept flow to verify the
+    // picked file is in the inviter's shared folder.
+    readonly parentId?: string
   }>
 }
 
