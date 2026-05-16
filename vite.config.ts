@@ -6,7 +6,21 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' (not 'autoUpdate'): we want the user to explicitly tap
+      // 'Reload to update' in Settings when a new version is available.
+      //
+      // Why: with 'autoUpdate', the SW silently takes over via
+      // skipWaiting + clientsClaim — but the JS bundle currently
+      // running in memory stays stale. Our needsRefresh flag doesn't
+      // reliably fire because the SW transitions through states
+      // without waiting, and the UI ends up saying 'Up to date' while
+      // the rendered page is from the previous deploy.
+      //
+      // 'prompt' makes the SW wait in the 'installed' state until we
+      // call updateServiceWorker(true) — at which point we KNOW the
+      // user wants the new code and we reload them onto it. The
+      // onNeedRefresh hook fires reliably as the signal source.
+      registerType: 'prompt',
       // We register the SW ourselves via shell/pwa/register.ts so we can
       // surface lifecycle state (registered / checking / needs-refresh)
       // in the Settings UI. Without 'false' here, the plugin would also
