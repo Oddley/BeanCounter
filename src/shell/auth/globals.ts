@@ -34,6 +34,10 @@ export interface PickerDocsView {
   setMimeTypes(types: string): PickerDocsView
   setOwnedByMe(b: boolean): PickerDocsView
   setParent(parent: string): PickerDocsView
+  // Custom human-readable label for the view's tab in the Picker UI.
+  // Without this, both 'My Drive folders' and 'Shared folders' tabs
+  // default to 'Folders' and become indistinguishable.
+  setLabel(label: string): PickerDocsView
 }
 
 export interface PickerBuiltInstance {

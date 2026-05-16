@@ -270,18 +270,6 @@ export function Settings() {
     )
   }
 
-  const handleCopyInviteLink = async () => {
-    const ok = await copyInviteLink()
-    if (ok) {
-      setInviteNotice({ kind: 'link-copied' })
-    } else {
-      setInviteNotice({
-        kind: 'error',
-        message: "Couldn't copy to clipboard. Long-press the link to copy.",
-      })
-    }
-  }
-
   const handleShareInviteLink = async () => {
     if (inviteUrl === null) return
     const folderName = getStoredFolderName() ?? 'this Bean Counter household'
@@ -319,9 +307,6 @@ export function Settings() {
   // Invite.tsx etc.).
   const onOpenFolderInDrive = () => {
     void handleOpenFolderInDrive()
-  }
-  const onCopyInviteLink = () => {
-    void handleCopyInviteLink()
   }
   const onShareInviteLink = () => {
     void handleShareInviteLink()
@@ -583,13 +568,6 @@ export function Settings() {
               <Button variant="secondary" onClick={onShareInviteLink}>
                 Share invite link…
               </Button>
-              <Button variant="secondary" onClick={onCopyInviteLink}>
-                Copy invite link
-              </Button>
-            </div>
-
-            <div className={styles.inviteLinkBox}>
-              <code className={styles.inviteLinkText}>{inviteUrl}</code>
             </div>
 
             {inviteNotice.kind === 'link-copied' && (

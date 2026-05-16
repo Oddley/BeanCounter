@@ -94,12 +94,14 @@ export async function pickFolder(
         .setIncludeFolders(true)
         .setSelectFolderEnabled(true)
         .setMimeTypes(FOLDER_MIME)
+        .setLabel('My Drive')
 
       const sharedView = new picker.DocsView(picker.ViewId.FOLDERS)
         .setIncludeFolders(true)
         .setSelectFolderEnabled(true)
         .setMimeTypes(FOLDER_MIME)
         .setOwnedByMe(false)
+        .setLabel('Shared with me')
 
       const builder = new picker.PickerBuilder()
         .setOAuthToken(accessToken)
