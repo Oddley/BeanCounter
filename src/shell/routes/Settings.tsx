@@ -625,6 +625,40 @@ export function Settings() {
         </section>
 
         <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Feedback</h2>
+          <p className={styles.muted}>
+            Hit a bug or have an idea? Filing an issue on GitHub helps us
+            keep track and respond.
+          </p>
+          <div className={styles.feedbackButtons}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                window.open(
+                  'https://github.com/Oddley/BeanCounter/issues/new?template=bug_report.yml',
+                  '_blank',
+                  'noopener,noreferrer',
+                )
+              }}
+            >
+              Report a bug
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                window.open(
+                  'https://github.com/Oddley/BeanCounter/issues/new?template=feature_request.yml',
+                  '_blank',
+                  'noopener,noreferrer',
+                )
+              }}
+            >
+              Request a feature
+            </Button>
+          </div>
+        </section>
+
+        <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Diagnostics</h2>
           <Link to="/debug" className={styles.diagnosticLink}>
             Debug — raw Dexie state, seed demo data, wipe all data

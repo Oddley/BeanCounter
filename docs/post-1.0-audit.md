@@ -20,19 +20,16 @@ Scope:
 
 Output: one PR that touches everything in one diff, easy to review.
 
-### In-app issue reporting
+### ~~In-app issue reporting~~ — DONE (basic version)
 
-Settings menu affordance that opens GitHub's "new issue" page for this repo with a sensible template (separate buttons for bug report vs feature request, ideally).
+Pulled forward from post-1.0 because foster mama is actively giving feedback during Phase 4.5 testing. Shipped in mid-Phase-4.5:
+- `.github/ISSUE_TEMPLATE/bug_report.yml` + `feature_request.yml` + `config.yml`
+- Settings → Feedback section with "Report a bug" + "Request a feature" buttons
 
-Why deferred: requires the GitHub project to have its issue templates set up properly (`.github/ISSUE_TEMPLATE/bug_report.yml` + `feature_request.yml`), which itself implies promoting the repo from "just a repo" to having a Project board for triage. That's worth doing once, against a stable product, with thought-through labels and templates — not piecemeal while the surface area is still shifting.
-
-Scope at audit time:
-- Add `.github/ISSUE_TEMPLATE/` with bug + feature templates
-- Set up a GitHub Project (board) for the repo, decide on labels (bug / feature / docs / sync / ui / etc.)
-- Add a Settings section "Report an issue" with two buttons:
-  - "Report a bug" → opens `https://github.com/Oddley/BeanCounter/issues/new?template=bug_report.yml` (and pre-fills the user agent / app version if we can)
-  - "Request a feature" → similar with feature_request template
-- Consider: does foster mama actually want this, or is it more for technical contributors? Probably both, but UX should be light — one Settings link, not a prominent always-visible button.
+**Still deferred for the audit:**
+- **GitHub Project (board)** for triaging issues across columns (Todo / In Progress / Done). Worth doing once issue volume justifies it, with thought-through column structure and labels. Today there are zero issues, so a board would be theatre.
+- **Label taxonomy** — currently using only default `bug` + `enhancement`. Once we've got 10+ issues, audit usage and add `sync` / `ui` / `docs` / `core` / etc. if patterns emerge.
+- **Pre-fill app version + git SHA** in the bug-report template so reports automatically include "what build was this on." Requires wiring `VITE_APP_VERSION` (or similar) at build time and passing it as a `?body=` query param in the issue-new URL. Small but cross-cutting (build config + Settings link).
 
 ### Cloudflare deploy doc
 

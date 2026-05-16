@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in Bean Counter isn't working
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking a moment to report this. Fill in what you can —
+        anything you skip is fine.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did the app do (or fail to do)?
+      placeholder: "I tapped Submit but the page just spun and never finished."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-you-were-doing
+    attributes:
+      label: What were you trying to do?
+      placeholder: "Logging the 3 AM feeding for the litter named 'Truffle's kittens'."
+
+  - type: textarea
+    id: what-you-expected
+    attributes:
+      label: What did you expect to happen?
+
+  - type: input
+    id: device
+    attributes:
+      label: Device & browser
+      description: e.g. iPhone 14 / Safari, or Pixel 7 / Chrome
+      placeholder: iPhone 14 / Safari
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Anything else?
+      description: Screenshots, error messages, when it started happening, etc.

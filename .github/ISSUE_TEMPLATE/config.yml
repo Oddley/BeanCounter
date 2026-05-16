@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Project documentation
+    url: https://github.com/Oddley/BeanCounter/tree/main/docs
+    about: Architectural decisions, phase retrospectives, and setup guides.
