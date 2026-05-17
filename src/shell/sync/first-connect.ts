@@ -50,6 +50,10 @@ export async function inspectDrive(
   // query which requires drive.file scope on the FOLDER — recipients
   // post-invite have scope on the FILE only, so folder searches return
   // empty even when the file is right there in their scope.
+  //
+  // Surface direct-fetch errors as 'unreadable' rather than silently
+  // falling through to the folder search — for recipients, the folder
+  // search ALSO fails and surfaces a misleading 'empty' result.
   if (knownFileId !== undefined) {
     try {
       const content = await readFileContent(token, knownFileId)
@@ -68,10 +72,15 @@ export async function inspectDrive(
         fileId: knownFileId,
         file: parsed.file,
       }
-    } catch {
-      // Stored file id stale (file deleted, moved, or scope lost).
-      // Fall through to the folder-search path which may recover by
-      // finding a current active.json.
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unknown fetch error'
+      return {
+        kind: 'unreadable',
+        folderId,
+        fileId: knownFileId,
+        error: `Direct fetch of file ${knownFileId} failed: ${message}`,
+      }
     }
   }
   const escapedName = escapeDriveQueryString(ACTIVE_FILE_NAME)

@@ -85,7 +85,11 @@ export async function readFileContent(
   token: string,
   fileId: string,
 ): Promise<string> {
-  const url = `${DRIVE_API_BASE}/files/${fileId}?alt=media`
+  // supportsAllDrives is required for some Drive scenarios (shared
+  // drives, certain shared-folder edge cases) and is a no-op for
+  // personal-drive files. Including it defensively avoids 404s when
+  // the file's reachability depends on Drive resolving cross-context.
+  const url = `${DRIVE_API_BASE}/files/${fileId}?alt=media&supportsAllDrives=true`
   const response = await driveFetch(token, url)
   return response.text()
 }
