@@ -10,6 +10,18 @@ function getApiKey(): string {
   return import.meta.env.VITE_GOOGLE_API_KEY ?? ''
 }
 
+// GCP project number is the numeric prefix of the OAuth client ID
+// (everything before the first `-`). Required by the Picker via
+// setAppId() in order for drive.file scope to be granted on files
+// owned by another user (shared-into-me case). Without it, the
+// Picker UI works but the scope grant doesn't stick, producing
+// 404s on subsequent Drive API calls for the picked file.
+function getAppId(): string {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
+  const match = /^(\d+)-/.exec(clientId)
+  return match?.[1] ?? ''
+}
+
 export function isPickerConfigured(): boolean {
   return getApiKey() !== ''
 }
@@ -116,6 +128,7 @@ export async function pickActiveFile(
       const built = new picker.PickerBuilder()
         .setOAuthToken(accessToken)
         .setDeveloperKey(apiKey)
+        .setAppId(getAppId())
         .setTitle('Pick the Bean Counter data file (active.json)')
         .addView(view)
         .setCallback((data: PickerCallbackData) => {
@@ -177,6 +190,7 @@ export async function pickFolder(
       const builder = new picker.PickerBuilder()
         .setOAuthToken(accessToken)
         .setDeveloperKey(apiKey)
+        .setAppId(getAppId())
         .setTitle('Choose a Bean Counter folder')
 
       // The first view passed to addView becomes the initially-shown

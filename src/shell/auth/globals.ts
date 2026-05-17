@@ -60,6 +60,10 @@ export interface PickerCallbackData {
 export interface PickerBuilder {
   setOAuthToken(token: string): PickerBuilder
   setDeveloperKey(key: string): PickerBuilder
+  // GCP project number — required for drive.file scope to be granted
+  // on shared-from-another-user files. Without this, the Picker UI
+  // works but the scope grant doesn't stick.
+  setAppId(appId: string): PickerBuilder
   setTitle(title: string): PickerBuilder
   addView(view: PickerDocsView): PickerBuilder
   setCallback(cb: (data: PickerCallbackData) => void): PickerBuilder
