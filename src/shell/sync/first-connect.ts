@@ -42,7 +42,38 @@ export type InspectionResult =
 export async function inspectDrive(
   token: string,
   folderId: string,
+  knownFileId?: string,
 ): Promise<InspectionResult> {
+  // Fast path: if we already know the file id (recipient picked it via
+  // Picker in the invite-accept flow, or we captured it after fresh-
+  // connect's initial push), read it directly. Avoids the folder-search
+  // query which requires drive.file scope on the FOLDER — recipients
+  // post-invite have scope on the FILE only, so folder searches return
+  // empty even when the file is right there in their scope.
+  if (knownFileId !== undefined) {
+    try {
+      const content = await readFileContent(token, knownFileId)
+      const parsed = parseActiveFile(content)
+      if (!parsed.ok) {
+        return {
+          kind: 'unreadable',
+          folderId,
+          fileId: knownFileId,
+          error: parsed.error,
+        }
+      }
+      return {
+        kind: 'exists',
+        folderId,
+        fileId: knownFileId,
+        file: parsed.file,
+      }
+    } catch {
+      // Stored file id stale (file deleted, moved, or scope lost).
+      // Fall through to the folder-search path which may recover by
+      // finding a current active.json.
+    }
+  }
   const escapedName = escapeDriveQueryString(ACTIVE_FILE_NAME)
   const matches = await listFiles(
     token,

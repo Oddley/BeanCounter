@@ -21,7 +21,9 @@ export {
 export {
   getStoredFolderId,
   getStoredFolderName,
+  getStoredFileId,
   setStoredFolder,
+  setStoredFileId,
   clearStoredFolder,
   hasStoredConnection,
 } from './connection'

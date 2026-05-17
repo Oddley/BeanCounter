@@ -7,6 +7,7 @@ import {
   requestToken,
   pickActiveFile,
   setStoredFolder,
+  setStoredFileId,
   getStoredFolderName,
 } from '../auth'
 import { DriveError } from '../drive'
@@ -136,13 +137,16 @@ export function Invite() {
       }
 
       // The picked file is now in our drive.file scope. Store the
-      // folder ID from the invite (we know it's correct) so the
-      // orchestrator's queries can find this same file going forward.
+      // folder ID from the invite AND the picked file id, so the
+      // orchestrator's inspect can use the fast direct-fetch path
+      // (recipients don't have folder-search scope; only file scope).
       setStoredFolder(expectedFolderId, expectedFolderName)
+      setStoredFileId(picked.id)
       setStep({ kind: 'inspecting', folderName: expectedFolderName })
       const inspection = await inspectDrive(
         token.accessToken,
         expectedFolderId,
+        picked.id,
       )
       if (inspection.kind === 'empty') {
         // Shouldn't happen — Papa just picked active.json so the

@@ -1,4 +1,10 @@
-import { getStoredFolderId, getValidToken, requestToken } from '../auth'
+import {
+  getStoredFolderId,
+  getStoredFileId,
+  getValidToken,
+  requestToken,
+  setStoredFileId,
+} from '../auth'
 import { DriveError, writeFile } from '../drive'
 import {
   type ActiveFileSnapshot,
@@ -141,7 +147,8 @@ async function doRunSync(
   }
 
   try {
-    const inspection = await inspectDrive(token, folderId)
+    const knownFileId = getStoredFileId() ?? undefined
+    const inspection = await inspectDrive(token, folderId, knownFileId)
     const localSnapshot = await snapshotLocal()
 
     let merged: ActiveFileSnapshot
@@ -174,7 +181,17 @@ async function doRunSync(
       setSuspended(false)
     }
 
-    await pushSnapshot(token, folderId, merged, existingFileId)
+    const pushedFileId = await pushSnapshot(
+      token,
+      folderId,
+      merged,
+      existingFileId,
+    )
+    // Cache the file id so subsequent syncs use the fast direct-fetch
+    // path in inspectDrive (avoids the folder-search query, which fails
+    // for users whose drive.file scope only covers the file — e.g.,
+    // invite recipients).
+    setStoredFileId(pushedFileId)
 
     const now = Date.now()
     // If a new edit landed during the sync, getDirtySince() moved
