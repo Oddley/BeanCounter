@@ -4,7 +4,7 @@ Tasks that don't make sense to chase before we have a stable 1.0 — either beca
 
 Revisit this file once Phase 5 (Polish + Install) ships and we declare 1.0. Don't pick at items piecemeal during active phase work — wait for the audit moment so we do them all against a settled codebase.
 
-> **Planning model shift (mid-Phase-4.5):** explicit "Phase X" plans have been replaced by GitHub Issues. Concrete actionable work lives there; this file now only holds architectural notes that aren't yet (or maybe ever) tied to a discrete task. See `docs/backlog.md` for the queue of issues to file.
+> **Planning model shift (mid-Phase-4.5):** explicit "Phase X" plans have been replaced by GitHub Issues. Concrete actionable work lives at https://github.com/Oddley/BeanCounter/issues; this file now only holds architectural notes that aren't yet (or maybe ever) tied to a discrete task. Filter by `phase:4.5` or `phase:5` labels to see scoped views.
 
 ## Items
 
