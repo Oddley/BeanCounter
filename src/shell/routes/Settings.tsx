@@ -158,25 +158,6 @@ export function Settings() {
     }
   }
 
-  // Reconnect: re-auth (in response to user tap so popup is allowed),
-  // but skip the Picker — use the stored folder.
-  const handleReconnect = async () => {
-    const storedId = getStoredFolderId()
-    const storedName = getStoredFolderName()
-    if (storedId === null || storedName === null) {
-      await handleFreshConnect()
-      return
-    }
-    setStep({ kind: 'connecting' })
-    setSyncState({ status: 'syncing', errorMessage: '' })
-    try {
-      const token = await requestToken()
-      await inspectAndBranch(token.accessToken, storedId, storedName)
-    } catch (err) {
-      handleError(err)
-    }
-  }
-
   const handlePushLocal = async () => {
     if (step.kind !== 'ready-push') return
     setStep({ kind: 'pushing', folderName: step.folderName })
@@ -463,7 +444,7 @@ export function Settings() {
                   <p className={styles.muted}>
                     Connected to <strong>{step.folderName}</strong>. The
                     folder selection persists across app launches; tap
-                    Reconnect after a fresh launch to refresh the OAuth
+                    Sync now after a fresh launch to refresh the OAuth
                     session.
                   </p>
                   <Button variant="secondary" onClick={handleReset}>
@@ -504,13 +485,11 @@ export function Settings() {
                   <p className={styles.muted}>
                     Sync runs on every navigation when you have unpublished
                     changes, and on app start. Tap Sync now to force a
-                    sync, or Reconnect if the session expired.
+                    sync — it also re-runs sign-in if your session has
+                    expired.
                   </p>
                   <div className={styles.connectedButtons}>
                     <Button onClick={handleSyncNow}>Sync now</Button>
-                    <Button variant="secondary" onClick={handleReconnect}>
-                      Reconnect
-                    </Button>
                     <Button variant="secondary" onClick={handleReset}>
                       Disconnect / choose different folder
                     </Button>
@@ -522,7 +501,7 @@ export function Settings() {
                 <div>
                   <p className={styles.error}>{step.message}</p>
                   <Button
-                    onClick={handleReconnect}
+                    onClick={handleFreshConnect}
                     className={styles.connectButton}
                   >
                     Try again
