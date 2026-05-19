@@ -4,7 +4,7 @@ import { type Kitten } from '../../core/kitten'
 import { type AppSettings } from '../../core/settings'
 import { type FeedingSession } from '../../core/session'
 import { type WeightEntry, weightEntryId } from '../../core/weight'
-import { db, SETTINGS_SINGLETON_ID } from './dexie'
+import { db, SETTINGS_SINGLETON_ID, type ConflictRecord } from './dexie'
 
 export function useActiveLitters(): Litter[] | undefined {
   return useLiveQuery(() => db.litters.filter((l) => l.active).toArray())
@@ -101,4 +101,15 @@ export function useAllSessions(): FeedingSession[] | undefined {
 
 export function useAllWeightEntries(): WeightEntry[] | undefined {
   return useLiveQuery(() => db.weightEntries.toArray())
+}
+
+// Conflict resolution UI consumes these. Live-query so the conflict
+// page re-renders as records are added (on sync) or removed (on
+// resolution).
+export function useConflicts(): ConflictRecord[] | undefined {
+  return useLiveQuery(() => db.conflicts.toArray())
+}
+
+export function useConflictCount(): number | undefined {
+  return useLiveQuery(() => db.conflicts.count())
 }

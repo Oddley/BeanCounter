@@ -9,6 +9,40 @@ export interface SettingsRecord extends AppSettings {
   readonly id: 'singleton'
 }
 
+// One conflict record per entity that the local device's most recent
+// sync detected as a tie-with-different-content. Persisted across app
+// restarts so the user can resolve at their leisure (per ADR-007 +
+// approach A: auto-resolve to local-wins, surface UI for retroactive
+// review). See src/shell/routes/ConflictResolution.tsx for the UI.
+export type ConflictEntityType =
+  | 'settings'
+  | 'litters'
+  | 'kittens'
+  | 'feedingSessions'
+  | 'weightEntries'
+
+export interface ConflictRecord {
+  // Composite key: `${entityType}:${entityId}`. Splitting on the FIRST
+  // colon is correct — weightEntries' entityId contains an internal
+  // colon (`${sessionId}:${kittenId}`) which we preserve as-is.
+  readonly id: string
+  readonly entityType: ConflictEntityType
+  readonly entityId: string
+  readonly localVersion: unknown
+  readonly remoteVersion: unknown
+  readonly detectedAt: number
+}
+
+// Build the deterministic conflict id. Re-detecting the same entity's
+// conflict produces the same id, so persistConflict can upsert
+// idempotently rather than accumulating duplicates.
+export function conflictRecordId(
+  entityType: ConflictEntityType,
+  entityId: string,
+): string {
+  return `${entityType}:${entityId}`
+}
+
 export const SETTINGS_SINGLETON_ID = 'singleton' as const
 
 interface LegacyKittenV1 {
@@ -24,6 +58,7 @@ export class BeanCounterDB extends Dexie {
   settings!: Table<SettingsRecord, 'singleton'>
   feedingSessions!: Table<FeedingSession, string>
   weightEntries!: Table<WeightEntry, string>
+  conflicts!: Table<ConflictRecord, string>
 
   constructor() {
     super('beancounter')
@@ -59,6 +94,18 @@ export class BeanCounterDB extends Dexie {
         weightEntries: 'id, sessionId, kittenId',
       })
       .upgrade(backfillSessionRecordedAt)
+
+    // v4 → v5: add the `conflicts` table. New table starts empty;
+    // no data migration needed. Existing local data passes through
+    // untouched.
+    this.version(5).stores({
+      litters: 'id',
+      kittens: 'id, litterId',
+      settings: 'id',
+      feedingSessions: 'id, litterId',
+      weightEntries: 'id, sessionId, kittenId',
+      conflicts: 'id, entityType',
+    })
 
     this.on('populate', () => {
       this.settings.add({ ...NullAppSettings, id: SETTINGS_SINGLETON_ID })

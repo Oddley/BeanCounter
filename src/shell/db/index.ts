@@ -2,7 +2,10 @@ export {
   db,
   BeanCounterDB,
   SETTINGS_SINGLETON_ID,
+  conflictRecordId,
   type SettingsRecord,
+  type ConflictRecord,
+  type ConflictEntityType,
 } from './dexie'
 
 export {
@@ -20,6 +23,8 @@ export {
   useWeightForKittenInSession,
   useAllSessions,
   useAllWeightEntries,
+  useConflicts,
+  useConflictCount,
 } from './queries'
 
 export {
@@ -42,6 +47,9 @@ export {
   clearSessionRecordedAtById,
   persistWeightEntry,
   wipeAllData,
+  persistConflict,
+  resolveConflictAsLocal,
+  resolveConflictAsRemote,
   type NewLitterInput,
   type NewLitterResult,
 } from './mutations'

@@ -18,6 +18,7 @@ Dexie persistence layer. Schema definitions, typed table access, live queries, a
   settings:        'id'                              // singleton: id always 'singleton'
   feedingSessions: 'id, litterId'                    // pk: id; index: litterId
   weightEntries:   'id, sessionId, kittenId'         // pk: composed `${sessionId}:${kittenId}`
+  conflicts:       'id, entityType'                  // pk: composed `${entityType}:${entityId}` (idempotent upsert)
 }
 ```
 
@@ -28,6 +29,7 @@ Boolean fields (`active`, `completed`) are not indexed — IndexedDB has flaky c
 - **v1 → v2**: Backfill `order: number` on every existing kitten record. For each litter, kittens are sorted by id (stable, deterministic) and assigned sequential orders 0..n-1.
 - **v2 → v3**: Add `feedingSessions` and `weightEntries` tables. No data migration needed — both tables start empty.
 - **v3 → v4**: Add `recordedAt: number` field to existing `feedingSessions` rows. Default `0` (= "no user override; fall back to createdAt").
+- **v4 → v5**: Add `conflicts` table. Starts empty; no data migration needed. Holds one record per entity-level conflict detected during sync until the user resolves it via the `/conflicts` route (see ADR-007 multi-user follow-up).
 
 Migrations are idempotent and side-effect-free on already-current data.
 

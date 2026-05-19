@@ -33,8 +33,16 @@ import {
   createWeightEntry,
   type WeightEntry,
 } from '../../core/weight'
+import { type AggregatedConflict } from '../../core/sync'
 import { newId } from '../../core/ids'
-import { db, SETTINGS_SINGLETON_ID, type SettingsRecord } from './dexie'
+import {
+  db,
+  SETTINGS_SINGLETON_ID,
+  type SettingsRecord,
+  type ConflictRecord,
+  type ConflictEntityType,
+  conflictRecordId,
+} from './dexie'
 // Import directly from dirty.ts (not the sync barrel) to avoid pulling
 // in orchestrator.ts and creating a circular import via shell/db.
 import { markDirty } from '../sync/dirty'
@@ -292,12 +300,20 @@ export async function persistWeightEntry(input: {
 export async function wipeAllData(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.litters, db.kittens, db.settings, db.feedingSessions, db.weightEntries],
+    [
+      db.litters,
+      db.kittens,
+      db.settings,
+      db.feedingSessions,
+      db.weightEntries,
+      db.conflicts,
+    ],
     async () => {
       await db.litters.clear()
       await db.kittens.clear()
       await db.feedingSessions.clear()
       await db.weightEntries.clear()
+      await db.conflicts.clear()
       await db.settings.clear()
       await db.settings.add({
         ...NullAppSettings,
@@ -306,4 +322,123 @@ export async function wipeAllData(): Promise<void> {
     },
   )
   markDirty()
+}
+
+// Conflict persistence + resolution mutations.
+//
+// Conflicts are local-only state (per ADR-007 multi-user follow-up):
+// each device captures the conflicts it personally detected during
+// merge. Resolving a conflict on one device propagates the chosen
+// version via the next sync (the resolver bumps the entity's recency
+// timestamp so it wins the next merge).
+//
+// persistConflict is idempotent on the entity — re-detecting the same
+// entity's conflict overwrites the previous record (so we don't
+// accumulate duplicate records for the same entity over multiple
+// syncs).
+
+export async function persistConflict(
+  conflict: AggregatedConflict,
+  now: number,
+): Promise<void> {
+  const id = conflictRecordId(conflict.entityType, conflict.id)
+  const record: ConflictRecord = {
+    id,
+    entityType: conflict.entityType,
+    entityId: conflict.id,
+    localVersion: conflict.local,
+    remoteVersion: conflict.remote,
+    detectedAt: now,
+  }
+  await db.conflicts.put(record)
+  // No markDirty: the entity itself was already bumped by
+  // bumpConflictWinners in the orchestrator before persistConflict runs,
+  // which is what actually moves the user-visible data.
+}
+
+// Shared helper: write the chosen version back to the appropriate
+// entity table with a fresh recency timestamp, then delete the
+// conflict record. The recency field differs by type:
+//   - settings/litters/kittens/feedingSessions: lastUpdatedAt
+//   - weightEntries: timestamp
+async function writeChosenVersionAndClear(
+  entityType: ConflictEntityType,
+  chosen: unknown,
+  conflictId: string,
+  now: number,
+): Promise<void> {
+  await db.transaction(
+    'rw',
+    [
+      db.settings,
+      db.litters,
+      db.kittens,
+      db.feedingSessions,
+      db.weightEntries,
+      db.conflicts,
+    ],
+    async () => {
+      switch (entityType) {
+        case 'settings': {
+          const next = {
+            ...(chosen as SettingsRecord),
+            id: SETTINGS_SINGLETON_ID,
+            lastUpdatedAt: now,
+          }
+          await db.settings.put(next)
+          break
+        }
+        case 'litters': {
+          const next = { ...(chosen as Litter), lastUpdatedAt: now }
+          await db.litters.put(next)
+          break
+        }
+        case 'kittens': {
+          const next = { ...(chosen as Kitten), lastUpdatedAt: now }
+          await db.kittens.put(next)
+          break
+        }
+        case 'feedingSessions': {
+          const next = { ...(chosen as FeedingSession), lastUpdatedAt: now }
+          await db.feedingSessions.put(next)
+          break
+        }
+        case 'weightEntries': {
+          const next = { ...(chosen as WeightEntry), timestamp: now }
+          await db.weightEntries.put(next)
+          break
+        }
+      }
+      await db.conflicts.delete(conflictId)
+    },
+  )
+  markDirty()
+}
+
+export async function resolveConflictAsLocal(
+  conflictId: string,
+  now: number,
+): Promise<void> {
+  const conflict = await db.conflicts.get(conflictId)
+  if (!conflict) return
+  await writeChosenVersionAndClear(
+    conflict.entityType,
+    conflict.localVersion,
+    conflictId,
+    now,
+  )
+}
+
+export async function resolveConflictAsRemote(
+  conflictId: string,
+  now: number,
+): Promise<void> {
+  const conflict = await db.conflicts.get(conflictId)
+  if (!conflict) return
+  await writeChosenVersionAndClear(
+    conflict.entityType,
+    conflict.remoteVersion,
+    conflictId,
+    now,
+  )
 }
