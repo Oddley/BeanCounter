@@ -15,6 +15,7 @@ import {
   LitterGraph,
   Settings,
   Invite,
+  ConflictResolution,
   Debug,
   NotFound,
 } from '../routes'
@@ -52,6 +53,7 @@ const router = createBrowserRouter([
       { path: '/litters/:id/graph', element: <LitterGraph /> },
       { path: '/settings', element: <Settings /> },
       { path: '/invite', element: <Invite /> },
+      { path: '/conflicts', element: <ConflictResolution /> },
       { path: '/debug', element: <Debug /> },
       { path: '*', element: <NotFound /> },
     ],
