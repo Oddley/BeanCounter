@@ -31,6 +31,10 @@
   color: #fbbf24;
 }
 
+.conflicts {
+  color: #f97316;
+}
+
 .error {
   color: #ff6b6b;
 }
@@ -51,6 +55,20 @@
   background: rgba(255, 107, 107, 0.08);
   color: #ff6b6b;
   margin: var(--space-3) 0;
+}
+
+.conflictsBanner {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid #f97316;
+  border-radius: var(--radius);
+  background: rgba(249, 115, 22, 0.08);
+  color: #f97316;
+  margin: var(--space-3) 0;
+}
+
+.conflictsLink {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .notConfigured {

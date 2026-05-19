@@ -476,10 +476,13 @@ export function Settings() {
                     </p>
                   )}
                   {syncState.conflictCount > 0 && (
-                    <p className={styles.error}>
-                      ⚠ {syncState.conflictCount} merge conflict
-                      {syncState.conflictCount === 1 ? '' : 's'} on the last
-                      sync. Conflict-resolution UI lands in Phase 4.5.
+                    <p className={styles.conflictsBanner}>
+                      ⚠ {syncState.conflictCount} sync conflict
+                      {syncState.conflictCount === 1 ? '' : 's'} unresolved
+                      —{' '}
+                      <Link to="/conflicts" className={styles.conflictsLink}>
+                        review and pick a side
+                      </Link>
                     </p>
                   )}
                   <p className={styles.muted}>
@@ -649,7 +652,13 @@ export function Settings() {
 }
 
 function labelFor(
-  status: 'offline' | 'syncing' | 'error' | 'dirty' | 'synced',
+  status:
+    | 'offline'
+    | 'syncing'
+    | 'error'
+    | 'conflicts'
+    | 'dirty'
+    | 'synced',
 ): string {
   switch (status) {
     case 'offline':
@@ -658,6 +667,8 @@ function labelFor(
       return 'Syncing…'
     case 'error':
       return 'Sync failed'
+    case 'conflicts':
+      return 'Sync conflicts'
     case 'dirty':
       return 'Unpublished changes'
     case 'synced':

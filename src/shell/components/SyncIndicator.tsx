@@ -6,6 +6,9 @@ interface IndicatorDisplay {
   readonly icon: string
   readonly label: string
   readonly className: string
+  // Tap target: indicators normally land in /settings, but the
+  // 'conflicts' state has its own resolution route.
+  readonly href: string
 }
 
 function displayFor(status: SyncStatus): IndicatorDisplay {
@@ -15,30 +18,42 @@ function displayFor(status: SyncStatus): IndicatorDisplay {
         icon: '⚙',
         label: 'Drive sync not configured — tap to set up',
         className: styles.offline ?? '',
+        href: '/settings',
       }
     case 'syncing':
       return {
         icon: '⟳',
         label: 'Syncing to Drive…',
         className: styles.syncing ?? '',
+        href: '/settings',
       }
     case 'error':
       return {
         icon: '!',
         label: 'Sync failed — changes saved locally',
         className: styles.error ?? '',
+        href: '/settings',
+      }
+    case 'conflicts':
+      return {
+        icon: '⚠',
+        label: 'Sync conflicts — tap to resolve',
+        className: styles.conflicts ?? '',
+        href: '/conflicts',
       }
     case 'dirty':
       return {
         icon: '●',
         label: 'Unpublished local changes',
         className: styles.dirty ?? '',
+        href: '/settings',
       }
     case 'synced':
       return {
         icon: '✓',
         label: 'Synced to Drive',
         className: styles.synced ?? '',
+        href: '/settings',
       }
   }
 }
@@ -48,7 +63,7 @@ export function SyncIndicator() {
   const display = displayFor(state.status)
   return (
     <Link
-      to="/settings"
+      to={display.href}
       className={`${styles.indicator} ${display.className}`}
       aria-label={display.label}
       title={display.label}

@@ -1,21 +1,28 @@
 import { useEffect, useState } from 'react'
 
-// Five sync states, ordered by precedence (higher takes the indicator
+// Six sync states, ordered by precedence (higher takes the indicator
 // when multiple conditions could apply):
 //
-//   offline   — Drive not configured / not connected (terminal at rest)
-//   syncing   — A sync run is in flight right now
-//   error     — Last sync attempt failed; local has changes that didn't reach Drive
-//   dirty     — Local has unpushed edits; no sync attempted yet since the last green
-//   synced    — Local matches Drive
+//   offline    — Drive not configured / not connected (terminal at rest)
+//   syncing    — A sync run is in flight right now
+//   error      — Last sync attempt failed; local has changes that didn't reach Drive
+//   conflicts  — Sync succeeded but produced unresolved data conflicts
+//   dirty      — Local has unpushed edits; no sync attempted yet since the last green
+//   synced     — Local matches Drive
 //
-// The model intentionally surfaces "dirty but not yet attempted" as a
-// distinct state from "tried and failed" — they require different user
-// mental models even though both mean "your changes are local-only".
+// 'conflicts' is distinct from 'error' because the sync itself
+// SUCCEEDED — only the data needs review (the orchestrator auto-
+// resolves to local-wins and persists conflict records for the user
+// to flip later via /conflicts).
+//
+// Precedence rationale: 'error' beats 'conflicts' because an error
+// means we didn't even know what to do; conflicts mean we did the
+// best-effort thing and want attention.
 export type SyncStatus =
   | 'offline'
   | 'syncing'
   | 'error'
+  | 'conflicts'
   | 'dirty'
   | 'synced'
 

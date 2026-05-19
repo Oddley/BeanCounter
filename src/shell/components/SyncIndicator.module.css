@@ -32,6 +32,13 @@
   color: #fbbf24;
 }
 
+.conflicts {
+  /* Amber/orange — between yellow (dirty) and red (error). Sync
+     succeeded but data needs attention; users should investigate
+     but their work isn't blocked. */
+  color: #f97316;
+}
+
 .error {
   color: #ff6b6b;
 }

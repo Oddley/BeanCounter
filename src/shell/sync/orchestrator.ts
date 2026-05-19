@@ -12,9 +12,10 @@ import {
 } from '../../core/active-file'
 import {
   mergeSnapshots,
+  bumpConflictWinners,
   type AggregatedConflict,
 } from '../../core/sync'
-import { db, SETTINGS_SINGLETON_ID } from '../db'
+import { db, SETTINGS_SINGLETON_ID, persistConflict } from '../db'
 import {
   inspectDrive,
   snapshotLocal,
@@ -172,6 +173,14 @@ async function doRunSync(
       return { kind: 'error', message: inspection.error }
     }
 
+    // If we detected conflicts, bump each conflict-winner's recency
+    // timestamp to `now` before applying-to-local + pushing. Without
+    // this, both devices keep re-detecting the same tie on every
+    // sync and flip-flop the winner forever ("thrash"). See
+    // bump-conflict-winners.ts for the design rationale.
+    const now = Date.now()
+    merged = bumpConflictWinners(merged, conflicts, now)
+
     // Suspend dirty marking while we apply remote state to local, otherwise
     // our own writes would mark the app dirty in a loop.
     setSuspended(true)
@@ -179,6 +188,15 @@ async function doRunSync(
       await applySnapshotToLocal(merged)
     } finally {
       setSuspended(false)
+    }
+
+    // Persist each conflict locally so the user can review/flip via
+    // /conflicts. Idempotent — re-detection upserts on composite id.
+    // Runs OUTSIDE the suspendDirty window because we want the
+    // conflict-table writes to be visible immediately, and they don't
+    // count as user edits (no markDirty inside persistConflict).
+    for (const c of conflicts) {
+      await persistConflict(c, now)
     }
 
     const pushedFileId = await pushSnapshot(
@@ -193,7 +211,6 @@ async function doRunSync(
     // invite recipients).
     setStoredFileId(pushedFileId)
 
-    const now = Date.now()
     // If a new edit landed during the sync, getDirtySince() moved
     // forward. Preserve that signal — don't clearDirty, and label the
     // resulting state 'dirty' so the next navigation re-syncs.
@@ -202,12 +219,17 @@ async function doRunSync(
       clearDirty()
     }
 
-    if (conflicts.length > 0) {
+    // Count unresolved conflicts ACROSS the whole conflicts table
+    // (not just the ones from this sync — earlier syncs may have left
+    // unresolved records the user hasn't flipped yet).
+    const unresolvedCount = await db.conflicts.count()
+
+    if (unresolvedCount > 0) {
       setSyncState({
-        status: 'error',
-        errorMessage: `${String(conflicts.length)} merge conflict${conflicts.length === 1 ? '' : 's'}`,
+        status: 'conflicts',
+        errorMessage: `${String(unresolvedCount)} unresolved sync conflict${unresolvedCount === 1 ? '' : 's'}`,
         lastSyncedAt: now,
-        conflictCount: conflicts.length,
+        conflictCount: unresolvedCount,
       })
     } else if (editedMidSync) {
       setSyncState({
