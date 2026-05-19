@@ -43,6 +43,7 @@ export {
   ensureOpenSessionWithRecordedAt,
   touchSessionById,
   completeSessionById,
+  deleteSessionById,
   setSessionRecordedAtById,
   clearSessionRecordedAtById,
   persistWeightEntry,

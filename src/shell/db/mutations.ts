@@ -228,6 +228,28 @@ export async function completeSessionById(sessionId: string): Promise<void> {
   markDirty()
 }
 
+// Delete a feeding session and every weight entry inside it.
+// Transactional so we can't leave orphan entries pointing at a
+// no-longer-existing session. No-op if the session is already gone.
+//
+// This is destructive — caller is expected to have confirmed with the
+// user. The graph view's "Delete feeding" button is the canonical
+// caller; future bulk-cleanup flows could share this helper.
+export async function deleteSessionById(sessionId: string): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.feedingSessions, db.weightEntries],
+    async () => {
+      await db.feedingSessions.delete(sessionId)
+      await db.weightEntries
+        .where('sessionId')
+        .equals(sessionId)
+        .delete()
+    },
+  )
+  markDirty()
+}
+
 export async function setSessionRecordedAtById(
   sessionId: string,
   time: number,

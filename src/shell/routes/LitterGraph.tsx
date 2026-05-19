@@ -12,7 +12,9 @@ import {
   useActiveKittens,
   useAllSessions,
   useAllWeightEntries,
+  deleteSessionById,
 } from '../db'
+import { runSync } from '../sync'
 import {
   buildSeries,
   xAxisRange,
@@ -219,15 +221,40 @@ export function LitterGraph() {
         {mode === 'rough' && (
           <div className={styles.editBar}>
             {selectedSession !== undefined && selectedTime !== null ? (
-              <Button
-                onClick={() => {
-                  void navigate(
-                    `/litters/${litterId}/edit-feeding/${selectedSession.id}`,
-                  )
-                }}
-              >
-                Edit feeding at {formatFeedingTime(selectedTime, now)}
-              </Button>
+              <>
+                <Button
+                  onClick={() => {
+                    void navigate(
+                      `/litters/${litterId}/edit-feeding/${selectedSession.id}`,
+                    )
+                  }}
+                >
+                  Edit feeding at {formatFeedingTime(selectedTime, now)}
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    // Destructive: nukes the session and all its weight
+                    // entries. Confirm with the user before committing.
+                    // window.confirm matches the established pattern in
+                    // Debug.tsx (wipe-all-data flow).
+                    const formatted = formatFeedingTime(selectedTime, now)
+                    const ok = window.confirm(
+                      `Delete the feeding at ${formatted}? All weight entries for this feeding will be removed. This can't be undone.`,
+                    )
+                    if (!ok) return
+                    const sessionId = selectedSession.id
+                    setSelectedSessionId(null)
+                    void deleteSessionById(sessionId).then(() => {
+                      // Fire-and-forget sync so the deletion propagates
+                      // to other devices without waiting for navigation.
+                      void runSync()
+                    })
+                  }}
+                >
+                  Delete feeding
+                </Button>
+              </>
             ) : (
               <p className={styles.editHint}>
                 Tap a feeding on the graph to edit it.
