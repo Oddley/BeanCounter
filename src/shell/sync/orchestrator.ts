@@ -15,7 +15,12 @@ import {
   bumpConflictWinners,
   type AggregatedConflict,
 } from '../../core/sync'
-import { db, SETTINGS_SINGLETON_ID, persistConflict } from '../db'
+import {
+  db,
+  SETTINGS_SINGLETON_ID,
+  persistConflict,
+  conflictRecordId,
+} from '../db'
 import {
   inspectDrive,
   snapshotLocal,
@@ -190,13 +195,35 @@ async function doRunSync(
       setSuspended(false)
     }
 
-    // Persist each conflict locally so the user can review/flip via
-    // /conflicts. Idempotent — re-detection upserts on composite id.
-    // Runs OUTSIDE the suspendDirty window because we want the
-    // conflict-table writes to be visible immediately, and they don't
-    // count as user edits (no markDirty inside persistConflict).
+    // Persist each currently-detected conflict locally so the user
+    // can review/flip via /conflicts. Idempotent — re-detection
+    // upserts on composite id. Runs OUTSIDE the suspendDirty window
+    // because we want the conflict-table writes to be visible
+    // immediately, and they don't count as user edits (no markDirty
+    // inside persistConflict).
     for (const c of conflicts) {
       await persistConflict(c, now)
+    }
+
+    // Auto-prune stale conflict records: a conflict record represents
+    // "this entity is currently in tension between local and remote."
+    // If a subsequent merge no longer detects that tension (because
+    // someone resolved it, a peer's edit broke the tie, or a schema-
+    // evolution bug got fixed), the stored record is stale and should
+    // disappear so the indicator clears without manual cleanup.
+    //
+    // This is the recovery path for the schema-evolution incident:
+    // any spurious conflicts that piled up before the parser-normalize
+    // fix evaporate on the next successful sync.
+    const currentIds = new Set(
+      conflicts.map((c) => conflictRecordId(c.entityType, c.id)),
+    )
+    const allStored = await db.conflicts.toArray()
+    const staleIds = allStored
+      .filter((r) => !currentIds.has(r.id))
+      .map((r) => r.id)
+    if (staleIds.length > 0) {
+      await db.conflicts.bulkDelete(staleIds)
     }
 
     const pushedFileId = await pushSnapshot(

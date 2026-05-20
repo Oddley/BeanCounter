@@ -1,13 +1,36 @@
 import { NullAppSettings, type AppSettings } from '../settings'
-import { type Litter } from '../litter'
-import { type Kitten } from '../kitten'
-import { type FeedingSession } from '../session'
-import { type WeightEntry } from '../weight'
+import { NullLitter, type Litter } from '../litter'
+import { NullKitten, type Kitten } from '../kitten'
+import { NullFeedingSession, type FeedingSession } from '../session'
+import { NullWeightEntry, type WeightEntry } from '../weight'
 import {
   CURRENT_SCHEMA_VERSION,
   type ActiveFile,
   type ParseResult,
 } from './types'
+
+// Normalize each parsed entity to the current type shape by spreading
+// the Null Object first, then the raw data. Effect: fields present in
+// the raw JSON keep their values; fields ADDED to the type after this
+// file was written get filled in from NullX defaults.
+//
+// Why this matters for sync: the per-entity merge uses deepEqual on
+// tie-break. If local Dexie has `{ ..., deleted: false }` (post-
+// migration) but Drive's JSON has `{ ... }` (written before that field
+// existed), deepEqual returns false and the merge flags it as a
+// conflict — even though the two values are semantically the same.
+// Normalizing here means both sides produce identical in-memory shape
+// and the equality check works as expected. This is the load-bearing
+// schema-evolution invariant: any new field on a synced entity is
+// safe as long as the corresponding NullX gets the same default.
+function normalizeOne<T>(nullVal: T, raw: unknown): T {
+  if (raw === null || typeof raw !== 'object') return nullVal
+  return { ...nullVal, ...(raw as Partial<T>) }
+}
+function normalizeArray<T>(nullVal: T, raw: unknown): T[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((r) => normalizeOne(nullVal, r))
+}
 
 export function parseActiveFile(text: string): ParseResult {
   let json: unknown
@@ -41,18 +64,17 @@ export function parseActiveFile(text: string): ParseResult {
 
   const file: ActiveFile = {
     schemaVersion: obj.schemaVersion,
-    settings:
-      typeof obj.settings === 'object' && obj.settings !== null
-        ? (obj.settings as AppSettings)
-        : NullAppSettings,
-    litters: Array.isArray(obj.litters) ? (obj.litters as Litter[]) : [],
-    kittens: Array.isArray(obj.kittens) ? (obj.kittens as Kitten[]) : [],
-    feedingSessions: Array.isArray(obj.feedingSessions)
-      ? (obj.feedingSessions as FeedingSession[])
-      : [],
-    weightEntries: Array.isArray(obj.weightEntries)
-      ? (obj.weightEntries as WeightEntry[])
-      : [],
+    settings: normalizeOne<AppSettings>(NullAppSettings, obj.settings),
+    litters: normalizeArray<Litter>(NullLitter, obj.litters),
+    kittens: normalizeArray<Kitten>(NullKitten, obj.kittens),
+    feedingSessions: normalizeArray<FeedingSession>(
+      NullFeedingSession,
+      obj.feedingSessions,
+    ),
+    weightEntries: normalizeArray<WeightEntry>(
+      NullWeightEntry,
+      obj.weightEntries,
+    ),
   }
 
   return { ok: true, file }

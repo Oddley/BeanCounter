@@ -169,4 +169,110 @@ describe('parseActiveFile', () => {
       expect(result.file.weightEntries).toEqual([])
     }
   })
+
+  // Schema-evolution invariant: when the codebase adds a field to a
+  // synced entity, the on-disk JSON may have been written before that
+  // field existed. The parser must normalize each parsed entity to the
+  // current type shape so per-entity merge equality doesn't spuriously
+  // flag every existing entity as conflicted. See parse.ts for the
+  // load-bearing comment.
+
+  it('normalizes a FeedingSession missing the deleted field to deleted=false', () => {
+    // Simulates an active.json written before the `deleted` tombstone
+    // field was added.
+    const result = parseActiveFile(
+      JSON.stringify({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        settings: { stickyLitterId: '', lastUpdatedAt: 0 },
+        litters: [],
+        kittens: [],
+        feedingSessions: [
+          {
+            id: 'S1',
+            litterId: 'L1',
+            createdAt: 100,
+            lastUpdatedAt: 100,
+            recordedAt: 0,
+            completed: true,
+            lockAcquired: false,
+            // no `deleted` field
+          },
+        ],
+        weightEntries: [],
+      }),
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.file.feedingSessions[0]?.deleted).toBe(false)
+    }
+  })
+
+  it('preserves explicit deleted=true on a session', () => {
+    const result = parseActiveFile(
+      JSON.stringify({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        settings: { stickyLitterId: '', lastUpdatedAt: 0 },
+        litters: [],
+        kittens: [],
+        feedingSessions: [
+          {
+            id: 'S1',
+            litterId: 'L1',
+            createdAt: 100,
+            lastUpdatedAt: 100,
+            recordedAt: 0,
+            completed: false,
+            lockAcquired: false,
+            deleted: true,
+          },
+        ],
+        weightEntries: [],
+      }),
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.file.feedingSessions[0]?.deleted).toBe(true)
+    }
+  })
+
+  it('round-trips identical content via serialize → parse with no semantic drift', () => {
+    // The acid test for "no spurious conflicts": serialize a snapshot,
+    // re-parse it, and the result should deep-equal a normalize-now of
+    // the same input. Both sides of a merge tie should compare equal.
+    const snapshot = {
+      settings: { stickyLitterId: 'L1', lastUpdatedAt: 100 },
+      litters: [{ id: 'L1', name: 'A', active: true, lastUpdatedAt: 100 }],
+      kittens: [
+        {
+          id: 'K1',
+          displayName: 'Sage',
+          litterId: 'L1',
+          active: true,
+          order: 0,
+          lastUpdatedAt: 100,
+        },
+      ],
+      feedingSessions: [
+        {
+          id: 'S1',
+          litterId: 'L1',
+          createdAt: 100,
+          lastUpdatedAt: 100,
+          recordedAt: 0,
+          completed: true,
+          lockAcquired: false,
+          deleted: false,
+        },
+      ],
+      weightEntries: [],
+    }
+    const result = parseActiveFile(snapshotToJson(snapshot))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.file.feedingSessions).toEqual(snapshot.feedingSessions)
+      expect(result.file.litters).toEqual(snapshot.litters)
+      expect(result.file.kittens).toEqual(snapshot.kittens)
+      expect(result.file.settings).toEqual(snapshot.settings)
+    }
+  })
 })
