@@ -4,11 +4,15 @@ import {
   useAllLitters,
   useAllKittens,
   useAllSessions,
+  useAllSessionsIncludingDeleted,
   useAllWeightEntries,
   useSettings,
   wipeAllData,
+  restoreDeletedSessionById,
   db,
 } from '../db'
+import { effectiveRecordedAt } from '../../core/session'
+import { runSync } from '../sync'
 import { newId } from '../../core/ids'
 import { createLitter } from '../../core/litter'
 import { createKitten } from '../../core/kitten'
@@ -161,13 +165,37 @@ async function seedDemoLitter(): Promise<string> {
   return litterId
 }
 
+function formatRestoreTime(millis: number): string {
+  if (!millis || millis <= 0) return '—'
+  return new Date(millis).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 export function Debug() {
   const navigate = useNavigate()
   const litters = useAllLitters() ?? []
   const kittens = useAllKittens() ?? []
   const sessions = useAllSessions() ?? []
+  const allSessionsIncludingDeleted =
+    useAllSessionsIncludingDeleted() ?? []
   const weightEntries = useAllWeightEntries() ?? []
   const settings = useSettings()
+
+  // Tombstoned sessions sorted most-recent-first so an accidental
+  // delete from an hour ago is at the top of the list.
+  const deletedSessions = allSessionsIncludingDeleted
+    .filter((s) => s.deleted)
+    .map((s) => ({
+      session: s,
+      effectiveTime: effectiveRecordedAt(s),
+      litterName: litters.find((l) => l.id === s.litterId)?.name ?? '(unknown litter)',
+      entryCount: weightEntries.filter((e) => e.sessionId === s.id).length,
+    }))
+    .sort((a, b) => b.effectiveTime - a.effectiveTime)
 
   const dump = {
     settings,
@@ -183,7 +211,7 @@ export function Debug() {
     )
     if (!ok) return
     await wipeAllData()
-    navigate('/', { replace: true })
+    void navigate('/', { replace: true })
   }
 
   const handleSeed = async () => {
@@ -192,13 +220,54 @@ export function Debug() {
     )
     if (!ok) return
     const litterId = await seedDemoLitter()
-    navigate(`/litters/${litterId}/graph`)
+    void navigate(`/litters/${litterId}/graph`)
+  }
+
+  const handleRestore = async (sessionId: string) => {
+    await restoreDeletedSessionById(sessionId)
+    // Immediate sync so the restoration propagates to other devices
+    // promptly (matches the explicit-save model).
+    void runSync()
   }
 
   return (
     <>
       <AppBar title="Debug" backTo="/" />
       <main className={styles.main}>
+        {deletedSessions.length > 0 && (
+          <section className={styles.restoreSection}>
+            <h2 className={styles.sectionTitle}>Deleted feedings</h2>
+            <p className={styles.muted}>
+              Tombstoned sessions still in storage. Tap Restore to undo a
+              delete — the feeding will reappear on the graph and sync to
+              other devices.
+            </p>
+            <ul className={styles.restoreList}>
+              {deletedSessions.map((d) => (
+                <li key={d.session.id} className={styles.restoreRow}>
+                  <div className={styles.restoreInfo}>
+                    <strong>{d.litterName}</strong>
+                    <span className={styles.muted}>
+                      {' '}
+                      — {formatRestoreTime(d.effectiveTime)} —{' '}
+                      {d.entryCount} weight
+                      {d.entryCount === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      void handleRestore(d.session.id)
+                    }}
+                  >
+                    Restore
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <pre className={styles.pre}>{JSON.stringify(dump, null, 2)}</pre>
         <div className={styles.seed}>
           <Button variant="secondary" onClick={handleSeed}>

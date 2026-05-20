@@ -103,6 +103,13 @@ export function useAllSessions(): FeedingSession[] | undefined {
   })
 }
 
+// Includes tombstoned (deleted=true) sessions. Used only by Debug
+// for restore-after-accidental-delete recovery; user-facing routes
+// should stick with useAllSessions which hides tombstones.
+export function useAllSessionsIncludingDeleted(): FeedingSession[] | undefined {
+  return useLiveQuery(() => db.feedingSessions.toArray())
+}
+
 export function useAllWeightEntries(): WeightEntry[] | undefined {
   return useLiveQuery(() => db.weightEntries.toArray())
 }

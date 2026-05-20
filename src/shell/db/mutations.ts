@@ -258,6 +258,30 @@ export async function deleteSessionById(sessionId: string): Promise<void> {
   markDirty()
 }
 
+// Inverse of deleteSessionById — flips the tombstone back to false and
+// bumps lastUpdatedAt so peers see the un-deletion via LWW on their
+// next sync. Weight entries were never removed (per the deleteSession
+// docstring), so restoration is just the session-flag flip.
+//
+// No-op if the session doesn't exist or isn't currently deleted.
+//
+// Exposed through Debug for accidental-delete recovery. Could become a
+// first-class "undo delete" UI in the future; for MVP, the explicit
+// debug-page action is sufficient.
+export async function restoreDeletedSessionById(
+  sessionId: string,
+): Promise<void> {
+  const session = await db.feedingSessions.get(sessionId)
+  if (!session) return
+  if (!session.deleted) return
+  await db.feedingSessions.put({
+    ...session,
+    deleted: false,
+    lastUpdatedAt: Date.now(),
+  })
+  markDirty()
+}
+
 export async function setSessionRecordedAtById(
   sessionId: string,
   time: number,
