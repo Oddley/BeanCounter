@@ -146,16 +146,24 @@ export function LitterGraph() {
   // hovers/drags/taps across the chart, mirroring Recharts' tooltip.
   // Only meaningful in rough mode, where each point corresponds to
   // exactly one session.
-  const litterSessions = (allSessions ?? []).filter(
-    (s) => s.litterId === litterId,
+  //
+  // Sorted by effectiveRecordedAt so the stepper arrows (below) move
+  // chronologically: ← = earlier feeding, → = later feeding.
+  const sortedLitterSessions = useMemo(
+    () =>
+      (allSessions ?? [])
+        .filter((s) => s.litterId === litterId)
+        .slice()
+        .sort((a, b) => effectiveRecordedAt(a) - effectiveRecordedAt(b)),
+    [allSessions, litterId],
   )
   const handleTimeChange = (time: number) => {
     if (mode !== 'rough') return
-    if (litterSessions.length === 0) return
-    let best = litterSessions[0]
+    if (sortedLitterSessions.length === 0) return
+    let best = sortedLitterSessions[0]
     if (best === undefined) return
     let bestDelta = Math.abs(effectiveRecordedAt(best) - time)
-    for (const s of litterSessions) {
+    for (const s of sortedLitterSessions) {
       const delta = Math.abs(effectiveRecordedAt(s) - time)
       if (delta < bestDelta) {
         best = s
@@ -179,10 +187,32 @@ export function LitterGraph() {
 
   const selectedSession =
     selectedSessionId !== null
-      ? litterSessions.find((s) => s.id === selectedSessionId)
+      ? sortedLitterSessions.find((s) => s.id === selectedSessionId)
       : undefined
   const selectedTime =
     selectedSession !== undefined ? effectiveRecordedAt(selectedSession) : null
+
+  // Stepper navigation: the arrows surface only when something is
+  // selected. Foster mama's reported pain is "graph gets crowded and
+  // the initial tap is imprecise" — the stepper lets her tap-near,
+  // then refine one feeding at a time without re-aiming on the chart.
+  const selectedIndex =
+    selectedSession !== undefined
+      ? sortedLitterSessions.findIndex((s) => s.id === selectedSession.id)
+      : -1
+  const canStepPrev = selectedIndex > 0
+  const canStepNext =
+    selectedIndex >= 0 && selectedIndex < sortedLitterSessions.length - 1
+  const stepPrev = () => {
+    if (!canStepPrev) return
+    const prev = sortedLitterSessions[selectedIndex - 1]
+    if (prev) setSelectedSessionId(prev.id)
+  }
+  const stepNext = () => {
+    if (!canStepNext) return
+    const next = sortedLitterSessions[selectedIndex + 1]
+    if (next) setSelectedSessionId(next.id)
+  }
 
   return (
     <>
@@ -222,15 +252,36 @@ export function LitterGraph() {
           <div className={styles.editBar}>
             {selectedSession !== undefined && selectedTime !== null ? (
               <>
-                <Button
-                  onClick={() => {
-                    void navigate(
-                      `/litters/${litterId}/edit-feeding/${selectedSession.id}`,
-                    )
-                  }}
-                >
-                  Edit feeding at {formatFeedingTime(selectedTime, now)}
-                </Button>
+                <div className={styles.stepperRow}>
+                  <Button
+                    variant="secondary"
+                    onClick={stepPrev}
+                    disabled={!canStepPrev}
+                    aria-label="Previous feeding"
+                    className={styles.stepperButton}
+                  >
+                    ‹
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      void navigate(
+                        `/litters/${litterId}/edit-feeding/${selectedSession.id}`,
+                      )
+                    }}
+                    className={styles.editButton}
+                  >
+                    Edit feeding at {formatFeedingTime(selectedTime, now)}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={stepNext}
+                    disabled={!canStepNext}
+                    aria-label="Next feeding"
+                    className={styles.stepperButton}
+                  >
+                    ›
+                  </Button>
+                </div>
                 <Button
                   variant="danger"
                   onClick={() => {

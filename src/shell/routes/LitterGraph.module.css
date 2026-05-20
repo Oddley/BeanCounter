@@ -42,6 +42,24 @@
   width: 100%;
 }
 
+.stepperRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.stepperButton {
+  flex: 0 0 var(--touch-target-min);
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.editButton {
+  flex: 1 1 auto;
+  min-width: 0; /* allow text to ellipsize cleanly within the row */
+}
+
 .editHint {
   color: var(--color-fg-muted);
   font-size: 0.9rem;
