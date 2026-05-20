@@ -119,12 +119,26 @@ export async function snapshotLocal(): Promise<ActiveFileSnapshot> {
       db.weightEntries.toArray(),
       db.settings.get(SETTINGS_SINGLETON_ID),
     ])
+  // Drive only sees completed feedings. Partial (completed=false)
+  // sessions are work-in-progress, local-only state — they live in
+  // Dexie until the user taps Submit, at which point completeSession
+  // flips completed=true and the next sync picks them up.
+  //
+  // Soft-deleted-but-completed sessions DO sync (tombstones propagate
+  // the deletion to peers). Sessions that were soft-deleted while
+  // still incomplete (rare/impossible in current UX) are skipped —
+  // they were never on Drive, so no tombstone is owed.
+  const syncableSessions = sessions.filter((s) => s.completed)
+  const syncableSessionIds = new Set(syncableSessions.map((s) => s.id))
+  const syncableEntries = weightEntries.filter((e) =>
+    syncableSessionIds.has(e.sessionId),
+  )
   return {
     settings: settings ?? { ...NullAppSettings },
     litters,
     kittens,
-    feedingSessions: sessions,
-    weightEntries,
+    feedingSessions: syncableSessions,
+    weightEntries: syncableEntries,
   }
 }
 

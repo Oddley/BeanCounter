@@ -32,6 +32,7 @@ import {
 } from '../../core/session'
 import {
   createWeightEntry,
+  weightEntryId,
   type WeightEntry,
 } from '../../core/weight'
 import { type AggregatedConflict } from '../../core/sync'
@@ -208,7 +209,10 @@ export async function ensureOpenSessionForLitter(
     createdAt: now,
   })
   await db.feedingSessions.add(session)
-  markDirty()
+  // No markDirty: a fresh session is completed=false, which means it's
+  // a work-in-progress / local-only entity. Sync only kicks in once
+  // completeSessionById fires (Submit) and the session becomes
+  // visible to snapshotLocal's filter.
   return session
 }
 
@@ -219,7 +223,9 @@ export async function touchSessionById(
   const session = await db.feedingSessions.get(sessionId)
   if (!session) return
   await db.feedingSessions.put(touchSession(session, now))
-  markDirty()
+  // No markDirty: touchSession only mutates WIP sessions (it's a
+  // no-op on completed ones, per core/session). WIP state doesn't
+  // sync, so no dirty flag.
 }
 
 export async function completeSessionById(sessionId: string): Promise<void> {
@@ -259,7 +265,8 @@ export async function setSessionRecordedAtById(
   const session = await db.feedingSessions.get(sessionId)
   if (!session) return
   await db.feedingSessions.put(setRecordedAt(session, time))
-  markDirty()
+  // No markDirty: callers are FeedingSession (WIP, doesn't sync) and
+  // EditFeeding (which fires runSync explicitly after the mutation).
 }
 
 export async function clearSessionRecordedAtById(
@@ -268,7 +275,7 @@ export async function clearSessionRecordedAtById(
   const session = await db.feedingSessions.get(sessionId)
   if (!session) return
   await db.feedingSessions.put(clearRecordedAt(session))
-  markDirty()
+  // No markDirty: same reasoning as setSessionRecordedAtById.
 }
 
 export async function ensureOpenSessionWithRecordedAt(
@@ -285,7 +292,7 @@ export async function ensureOpenSessionWithRecordedAt(
     if (recordedAt > 0 && existing.recordedAt !== recordedAt) {
       const updated = setRecordedAt(existing, recordedAt)
       await db.feedingSessions.put(updated)
-      markDirty()
+      // No markDirty: WIP session edit, local-only.
       return updated
     }
     return existing
@@ -293,8 +300,23 @@ export async function ensureOpenSessionWithRecordedAt(
   const base = createSession({ id: newId(), litterId, createdAt: now })
   const session = recordedAt > 0 ? setRecordedAt(base, recordedAt) : base
   await db.feedingSessions.add(session)
-  markDirty()
+  // No markDirty: fresh WIP session, local-only.
   return session
+}
+
+// Remove a single weight entry by its (sessionId, kittenId) pair.
+// No-op if the entry doesn't exist. Used when the user clears the
+// weight input for one kitten during a WIP feeding — we don't want
+// the prior value to linger in Dexie and reappear as a phantom on
+// the graph or in EditFeeding.
+//
+// No markDirty for the same reason as persistWeightEntry: WIP edits
+// are local-only, EditFeeding edits fire runSync explicitly.
+export async function deleteWeightEntryById(
+  sessionId: string,
+  kittenId: string,
+): Promise<void> {
+  await db.weightEntries.delete(weightEntryId(sessionId, kittenId))
 }
 
 export async function persistWeightEntry(input: {
@@ -317,7 +339,10 @@ export async function persistWeightEntry(input: {
       await db.feedingSessions.put(touchSession(session, input.now))
     }
   })
-  markDirty()
+  // No markDirty: weight entries belong to either a WIP session (no
+  // sync until Submit) or a completed session being edited via
+  // EditFeeding (which fires runSync explicitly after the edits).
+  // Either way the entity-level markDirty isn't the right signal.
   return entry
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AppBar, Button } from '../components'
 import {
@@ -8,21 +8,19 @@ import {
   useWeightEntriesForSession,
   ensureOpenSessionForLitter,
   ensureOpenSessionWithRecordedAt,
-  touchSessionById,
   completeSessionById,
   setSessionRecordedAtById,
   clearSessionRecordedAtById,
   persistWeightEntry,
+  deleteWeightEntryById,
 } from '../db'
 import {
-  isStale,
   effectiveRecordedAt,
-  type FeedingSession as FeedingSessionType,
+  STALE_THRESHOLD_MS,
 } from '../../core/session'
 import { type Kitten } from '../../core/kitten'
-import { type WeightEntry, validateGrams } from '../../core/weight'
+import { validateGrams } from '../../core/weight'
 import { isSameLocalDay } from '../../core/time'
-import { useAutosave } from '../hooks'
 import { runSync } from '../sync'
 import styles from './FeedingSession.module.css'
 
@@ -69,14 +67,25 @@ export function FeedingSession() {
   const openSession = useOpenSessionForLitter(litterId)
   const entries = useWeightEntriesForSession(openSession?.id ?? '')
 
-  const [now, setNow] = useState(Date.now())
-  const [resumeChoiceMade, setResumeChoiceMade] = useState(false)
+  const [now, setNow] = useState<number>(() => Date.now())
+  // Parent-owned weights state: source of truth for "what the user has
+  // typed" (independent of Dexie roundtrip). Allows Submit's enabled
+  // state to react instantly without waiting on a debounce-then-query.
+  const [weights, setWeights] = useState<Record<string, string>>({})
+  // Track which session we've hydrated from to avoid clobbering user
+  // edits when entries re-flow from live query (e.g., after eager
+  // save commits).
+  const hydratedSessionIdRef = useRef<string | null>(null)
+  // In-flight Dexie writes; Submit awaits these so a fast double-tap
+  // (type-last-digit → tap-Submit) doesn't race the weight write
+  // against the completeSession write.
+  const pendingWritesRef = useRef<Set<Promise<unknown>>>(new Set())
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const timePickerRef = useRef<HTMLInputElement>(null)
 
-  // tick `now` once per second so the live clock advances smoothly
-  // (also used for staleness checks)
+  // Tick `now` once per second so the live clock advances smoothly
+  // and the stale-banner threshold is re-evaluated as time passes.
   useEffect(() => {
     const handle = setInterval(() => {
       setNow(Date.now())
@@ -85,6 +94,126 @@ export function FeedingSession() {
       clearInterval(handle)
     }
   }, [])
+
+  // Hydrate weights from existing entries the first time we see them
+  // for this session. Switching sessions (Submit + start fresh) resets
+  // hydration so the new session's entries (which start empty) load.
+  useEffect(() => {
+    if (openSession === undefined || openSession === null) return
+    if (entries === undefined) return
+    if (hydratedSessionIdRef.current === openSession.id) return
+    const initial: Record<string, string> = {}
+    for (const e of entries) {
+      initial[e.kittenId] = String(e.grams)
+    }
+    setWeights(initial)
+    hydratedSessionIdRef.current = openSession.id
+  }, [openSession, entries])
+
+  // Persistence helper. Queues the write so Submit can await it.
+  const trackWrite = <T,>(promise: Promise<T>): Promise<T> => {
+    pendingWritesRef.current.add(promise)
+    void promise.finally(() => {
+      pendingWritesRef.current.delete(promise)
+    })
+    return promise
+  }
+
+  const persistWeight = (kittenId: string, sanitized: string) => {
+    if (sanitized === '') {
+      // Cleared input — remove any existing entry so it doesn't
+      // linger as a phantom value. No-op if no entry exists.
+      const sessionId = openSession?.id
+      if (sessionId === undefined || sessionId === null) return
+      void trackWrite(deleteWeightEntryById(sessionId, kittenId))
+      return
+    }
+    const grams = Number(sanitized)
+    if (!validateGrams(grams).valid) return
+    const writeNow = Date.now()
+    const work = async () => {
+      const sessionId =
+        openSession?.id ??
+        (await ensureOpenSessionForLitter(litterId, writeNow)).id
+      await persistWeightEntry({
+        sessionId,
+        kittenId,
+        grams,
+        now: writeNow,
+      })
+    }
+    void trackWrite(work())
+  }
+
+  const handleChange = (kittenId: string, raw: string) => {
+    const sanitized = raw.replace(/[^\d]/g, '')
+    setWeights((prev) => ({ ...prev, [kittenId]: sanitized }))
+    persistWeight(kittenId, sanitized)
+  }
+
+  // Computed flags. These read parent state (not Dexie) so they react
+  // instantly to keystrokes.
+  const allFilledIn = useMemo(() => {
+    if (!kittens || kittens.length === 0) return false
+    return kittens.every((k) => {
+      const text = weights[k.id]
+      if (text === undefined || text === '') return false
+      return validateGrams(Number(text)).valid
+    })
+  }, [kittens, weights])
+
+  // "Stale" warning criterion (per user): session has data AND its
+  // creation time is older than the threshold. Uses createdAt (not
+  // lastUpdatedAt or recordedAt) because the latter two can both be
+  // user-edited and would mask "this was actually started long ago".
+  const showStaleBanner =
+    openSession !== null &&
+    openSession !== undefined &&
+    entries !== undefined &&
+    entries.length > 0 &&
+    now - openSession.createdAt > STALE_THRESHOLD_MS
+
+  const handleSubmit = async () => {
+    if (openSession === null || openSession === undefined) {
+      void navigate(`/litters/${litterId}`)
+      return
+    }
+    // Wait for any in-flight weight writes to settle so we don't
+    // complete-the-session before the last keystroke's persist lands.
+    const inFlight = Array.from(pendingWritesRef.current)
+    if (inFlight.length > 0) {
+      await Promise.allSettled(inFlight)
+    }
+    await completeSessionById(openSession.id)
+    // Reset hydration so a new session (after this completes) starts
+    // with a fresh empty weights map.
+    hydratedSessionIdRef.current = null
+    setWeights({})
+    // Fire-and-forget immediate sync on Submit. completeSession marks
+    // dirty, but the nav that follows is a sibling sync trigger too;
+    // explicit runSync here just hurries it.
+    void runSync()
+    void navigate(`/litters/${litterId}`)
+  }
+
+  const onSubmit = () => {
+    void handleSubmit()
+  }
+
+  const handleEnterAtRow = (index: number) => {
+    const next = inputRefs.current[index + 1]
+    if (next) {
+      next.focus()
+      return
+    }
+    // Last row — if everything's filled, fire Submit. Otherwise blur
+    // to dismiss the keyboard.
+    if (allFilledIn) {
+      void handleSubmit()
+    } else {
+      inputRefs.current[index]?.blur()
+    }
+  }
 
   if (
     litter === undefined ||
@@ -106,43 +235,10 @@ export function FeedingSession() {
       <>
         <AppBar title="Not found" backTo="/litters" />
         <main className={styles.main}>
-          <p className={styles.muted}>This litter doesn't exist.</p>
+          <p className={styles.muted}>This litter doesn&apos;t exist.</p>
         </main>
       </>
     )
-  }
-
-  const sessionIsStale =
-    openSession !== null && isStale(openSession, now) && !resumeChoiceMade
-
-  const allFilledIn =
-    kittens.length > 0 &&
-    entries !== undefined &&
-    kittens.every((k) => entries.some((e) => e.kittenId === k.id))
-
-  const handleResume = async () => {
-    if (openSession === null) return
-    await touchSessionById(openSession.id, Date.now())
-    setResumeChoiceMade(true)
-  }
-
-  const handleRestart = async () => {
-    if (openSession === null) return
-    await completeSessionById(openSession.id)
-    setResumeChoiceMade(true)
-  }
-
-  const handleFinish = async () => {
-    if (openSession === null) {
-      navigate(`/litters/${litterId}`)
-      return
-    }
-    await completeSessionById(openSession.id)
-    // Fire-and-forget immediate sync on Finish: the user has done a
-    // meaningful unit of work and expects it pushed without waiting on
-    // the 60s debounce.
-    void runSync()
-    navigate(`/litters/${litterId}`)
   }
 
   const displayTimeMillis =
@@ -167,21 +263,6 @@ export function FeedingSession() {
     await clearSessionRecordedAtById(openSession.id)
   }
 
-  const handleEnterAtRow = (index: number) => {
-    const next = inputRefs.current[index + 1]
-    if (next) {
-      next.focus()
-      return
-    }
-    // Last row — try to finish if everything's filled
-    if (allFilledIn) {
-      void handleFinish()
-    } else {
-      // Otherwise just blur to dismiss the keyboard
-      inputRefs.current[index]?.blur()
-    }
-  }
-
   return (
     <>
       <AppBar
@@ -189,87 +270,78 @@ export function FeedingSession() {
         backTo={`/litters/${litterId}`}
       />
       <main className={styles.main}>
-        {sessionIsStale && openSession !== null && (
-          <div className={styles.resumeModal} role="dialog">
-            <h2 className={styles.resumeTitle}>Resume previous weights?</h2>
-            <p className={styles.resumeBody}>
-              The last weight entry for this litter was over 30 minutes ago.
-              Resume that session, or start a fresh one?
-            </p>
-            <div className={styles.resumeButtons}>
-              <Button onClick={handleResume}>Resume</Button>
-              <Button variant="secondary" onClick={handleRestart}>
-                Start fresh
-              </Button>
-            </div>
+        {showStaleBanner && (
+          <div className={styles.staleBanner} role="status">
+            ⚠ This may be a stale session — started{' '}
+            {formatClockTime(openSession.createdAt, now)}.
           </div>
         )}
 
-        {!sessionIsStale && (
-          <>
-            <div className={styles.timeBar}>
-              <div className={styles.timeTapArea}>
-                <span className={styles.timeIcon} aria-hidden>
-                  🕒
-                </span>
-                <span className={styles.timeDisplay}>
-                  {formatClockTime(displayTimeMillis, now)}
-                </span>
-                <input
-                  ref={timePickerRef}
-                  type="datetime-local"
-                  value={toLocalDatetimeInputValue(displayTimeMillis)}
-                  onChange={(e) => {
-                    void handleTimePicked(e)
-                  }}
-                  className={styles.invisibleDatetime}
-                  aria-label="Edit recorded weigh-in time"
-                />
-              </div>
-              {isUserModified && (
-                <button
-                  type="button"
-                  className={styles.resetButton}
-                  onClick={() => {
-                    void handleResetTime()
-                  }}
-                  aria-label="Reset to start of weigh-in"
-                >
-                  ↺
-                </button>
-              )}
-            </div>
+        <div className={styles.timeBar}>
+          <div className={styles.timeTapArea}>
+            <span className={styles.timeIcon} aria-hidden>
+              🕒
+            </span>
+            <span className={styles.timeDisplay}>
+              {formatClockTime(displayTimeMillis, now)}
+            </span>
+            <input
+              ref={timePickerRef}
+              type="datetime-local"
+              value={toLocalDatetimeInputValue(displayTimeMillis)}
+              onChange={(e) => {
+                void handleTimePicked(e)
+              }}
+              className={styles.invisibleDatetime}
+              aria-label="Edit recorded weigh-in time"
+            />
+          </div>
+          {isUserModified && (
+            <button
+              type="button"
+              className={styles.resetButton}
+              onClick={() => {
+                void handleResetTime()
+              }}
+              aria-label="Reset to start of weigh-in"
+            >
+              ↺
+            </button>
+          )}
+        </div>
 
-            {kittens.length === 0 ? (
-              <p className={styles.muted}>
-                No active kittens in this litter. Add one before recording
-                weights.
-              </p>
-            ) : (
-              <ul className={styles.list}>
-                {kittens.map((kitten, i) => (
-                  <KittenWeightRow
-                    key={kitten.id}
-                    kitten={kitten}
-                    litterId={litterId}
-                    session={openSession}
-                    isLast={i === kittens.length - 1}
-                    inputRef={(el) => {
-                      inputRefs.current[i] = el
-                    }}
-                    onEnter={() => handleEnterAtRow(i)}
-                  />
-                ))}
-              </ul>
-            )}
-
-            <div className={styles.finish}>
-              <Button onClick={handleFinish} disabled={!allFilledIn}>
-                Submit
-              </Button>
-            </div>
-          </>
+        {kittens.length === 0 ? (
+          <p className={styles.muted}>
+            No active kittens in this litter. Add one before recording
+            weights.
+          </p>
+        ) : (
+          <ul className={styles.list}>
+            {kittens.map((kitten, i) => (
+              <KittenWeightRow
+                key={kitten.id}
+                kitten={kitten}
+                value={weights[kitten.id] ?? ''}
+                isLast={i === kittens.length - 1}
+                inputRef={(el) => {
+                  inputRefs.current[i] = el
+                }}
+                onChange={(text) => {
+                  handleChange(kitten.id, text)
+                }}
+                onEnter={() => {
+                  handleEnterAtRow(i)
+                }}
+              />
+            ))}
+          </ul>
         )}
+
+        <div className={styles.finish}>
+          <Button onClick={onSubmit} disabled={!allFilledIn}>
+            Submit
+          </Button>
+        </div>
       </main>
     </>
   )
@@ -277,60 +349,23 @@ export function FeedingSession() {
 
 interface KittenWeightRowProps {
   readonly kitten: Kitten
-  readonly litterId: string
-  readonly session: FeedingSessionType | null
+  readonly value: string
   readonly isLast: boolean
   readonly inputRef: (el: HTMLInputElement | null) => void
+  readonly onChange: (text: string) => void
   readonly onEnter: () => void
 }
 
 function KittenWeightRow({
   kitten,
-  litterId,
-  session,
+  value,
   isLast,
   inputRef,
+  onChange,
   onEnter,
 }: KittenWeightRowProps) {
-  const entries = useWeightEntriesForSession(session?.id ?? '')
-  const existing: WeightEntry | undefined = entries?.find(
-    (e) => e.kittenId === kitten.id,
-  )
-
-  const [text, setText] = useState('')
-  const [touched, setTouched] = useState(false)
-
-  // Hydrate from existing entry when it arrives
-  useEffect(() => {
-    if (existing && !touched) {
-      setText(String(existing.grams))
-    }
-  }, [existing, touched])
-
-  const parsed = text === '' ? NaN : Number(text)
-  const validation = text === '' ? null : validateGrams(parsed)
-  const isValid = validation !== null && validation.valid
-
-  const { flush } = useAutosave({
-    value: text,
-    delayMs: 400,
-    enabled: isValid,
-    onSave: async (currentText) => {
-      const grams = Number(currentText)
-      if (!validateGrams(grams).valid) return
-      const now = Date.now()
-      const sessionId =
-        session?.id ?? (await ensureOpenSessionForLitter(litterId, now)).id
-      await persistWeightEntry({
-        sessionId,
-        kittenId: kitten.id,
-        grams,
-        now,
-      })
-    },
-  })
-
-  const showError = text !== '' && validation !== null && !validation.valid
+  const validation = value === '' ? null : validateGrams(Number(value))
+  const showError = value !== '' && validation !== null && !validation.valid
 
   return (
     <li className={styles.row}>
@@ -341,12 +376,10 @@ function KittenWeightRow({
           type="text"
           inputMode="numeric"
           enterKeyHint={isLast ? 'done' : 'next'}
-          value={text}
+          value={value}
           onChange={(e) => {
-            setTouched(true)
-            setText(e.target.value.replace(/[^\d]/g, ''))
+            onChange(e.target.value)
           }}
-          onBlur={flush}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()

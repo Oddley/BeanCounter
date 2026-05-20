@@ -47,6 +47,7 @@ export {
   setSessionRecordedAtById,
   clearSessionRecordedAtById,
   persistWeightEntry,
+  deleteWeightEntryById,
   wipeAllData,
   persistConflict,
   resolveConflictAsLocal,
