@@ -33,6 +33,7 @@ function session(
     recordedAt: recordedAt === createdAt ? 0 : recordedAt,
     completed: true,
     lockAcquired: true,
+    deleted: false,
   }
 }
 

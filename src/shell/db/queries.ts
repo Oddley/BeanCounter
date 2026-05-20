@@ -59,7 +59,7 @@ export function useOpenSessionForLitter(
       .where('litterId')
       .equals(litterId)
       .toArray()
-    const open = all.find((s) => !s.completed)
+    const open = all.find((s) => !s.completed && !s.deleted)
     return open ?? null
   }, [litterId])
 }
@@ -70,7 +70,8 @@ export function useSession(
   return useLiveQuery(async () => {
     if (!sessionId) return null
     const found = await db.feedingSessions.get(sessionId)
-    return found ?? null
+    if (!found || found.deleted) return null
+    return found
   }, [sessionId])
 }
 
@@ -96,7 +97,10 @@ export function useWeightForKittenInSession(
 }
 
 export function useAllSessions(): FeedingSession[] | undefined {
-  return useLiveQuery(() => db.feedingSessions.toArray())
+  return useLiveQuery(async () => {
+    const all = await db.feedingSessions.toArray()
+    return all.filter((s) => !s.deleted)
+  })
 }
 
 export function useAllWeightEntries(): WeightEntry[] | undefined {

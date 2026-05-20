@@ -107,6 +107,23 @@ export class BeanCounterDB extends Dexie {
       conflicts: 'id, entityType',
     })
 
+    // v5 → v6: add `deleted: boolean` tombstone field on feeding
+    // sessions. Default `false` on existing rows. Required to make
+    // delete-feeding survive a sync round-trip — physical deletes get
+    // resurrected by the merge (local-missing vs remote-has-it is
+    // indistinguishable from "I just haven't seen it yet"). Tombstones
+    // make the deletion explicit so LWW resolves it correctly.
+    this.version(6)
+      .stores({
+        litters: 'id',
+        kittens: 'id, litterId',
+        settings: 'id',
+        feedingSessions: 'id, litterId',
+        weightEntries: 'id, sessionId, kittenId',
+        conflicts: 'id, entityType',
+      })
+      .upgrade(backfillSessionDeleted)
+
     this.on('populate', () => {
       this.settings.add({ ...NullAppSettings, id: SETTINGS_SINGLETON_ID })
     })
@@ -114,9 +131,15 @@ export class BeanCounterDB extends Dexie {
 }
 
 async function backfillSessionRecordedAt(tx: Transaction): Promise<void> {
+  // v3 → v4 upgrade: pre-`deleted` records, so we explicitly set
+  // deleted: false to match the current FeedingSession shape. The
+  // v5 → v6 migration also backfills this, but doing it here keeps
+  // each schema version's resulting shape consistent with its time.
   const sessions = (await tx
     .table('feedingSessions')
-    .toArray()) as Array<FeedingSession & { recordedAt?: number }>
+    .toArray()) as Array<
+    FeedingSession & { recordedAt?: number; deleted?: boolean }
+  >
   const updated: FeedingSession[] = sessions.map((s) => ({
     id: s.id,
     litterId: s.litterId,
@@ -125,6 +148,30 @@ async function backfillSessionRecordedAt(tx: Transaction): Promise<void> {
     recordedAt: s.recordedAt ?? 0,
     completed: s.completed,
     lockAcquired: s.lockAcquired,
+    deleted: s.deleted ?? false,
+  }))
+  if (updated.length > 0) {
+    await tx.table('feedingSessions').bulkPut(updated)
+  }
+}
+
+async function backfillSessionDeleted(tx: Transaction): Promise<void> {
+  // v5 → v6: any session row that pre-dates the `deleted` field gets
+  // an explicit false. After this, every session record has the field
+  // set in storage, and the FeedingSession type's required `deleted`
+  // is satisfied by reads.
+  const sessions = (await tx
+    .table('feedingSessions')
+    .toArray()) as Array<FeedingSession & { deleted?: boolean }>
+  const updated: FeedingSession[] = sessions.map((s) => ({
+    id: s.id,
+    litterId: s.litterId,
+    createdAt: s.createdAt,
+    lastUpdatedAt: s.lastUpdatedAt,
+    recordedAt: s.recordedAt,
+    completed: s.completed,
+    lockAcquired: s.lockAcquired,
+    deleted: s.deleted ?? false,
   }))
   if (updated.length > 0) {
     await tx.table('feedingSessions').bulkPut(updated)

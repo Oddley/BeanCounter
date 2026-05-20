@@ -51,6 +51,7 @@ function buildSession(id: string, ts: number): FeedingSession {
     recordedAt: 0,
     completed: true,
     lockAcquired: false,
+    deleted: false,
   }
 }
 

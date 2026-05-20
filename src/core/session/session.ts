@@ -17,7 +17,25 @@ export function createSession(input: {
     recordedAt: 0,
     completed: false,
     lockAcquired: true,
+    deleted: false,
   }
+}
+
+// Soft-delete the session by flipping the tombstone flag and bumping
+// lastUpdatedAt. Physical removal is unsafe in our sync model — a
+// missing-on-local entity is indistinguishable from "remote has new
+// content we haven't pulled yet," so the next merge would resurrect
+// the deletion. Tombstones make the deletion explicit and let LWW do
+// its job.
+//
+// Idempotent: re-deleting an already-deleted session bumps the
+// timestamp again (so a stale resurrection from remote is overridden
+// by the fresh delete).
+export function deleteSession(
+  session: FeedingSession,
+  now: number,
+): FeedingSession {
+  return { ...session, deleted: true, lastUpdatedAt: now }
 }
 
 export function touchSession(

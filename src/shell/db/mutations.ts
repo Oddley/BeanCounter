@@ -25,6 +25,7 @@ import {
   createSession,
   touchSession,
   completeSession,
+  deleteSession,
   setRecordedAt,
   clearRecordedAt,
   type FeedingSession,
@@ -198,7 +199,7 @@ export async function ensureOpenSessionForLitter(
     .where('litterId')
     .equals(litterId)
     .toArray()
-  const existing = all.find((s) => !s.completed)
+  const existing = all.find((s) => !s.completed && !s.deleted)
   if (existing) return existing
 
   const session = createSession({
@@ -228,25 +229,26 @@ export async function completeSessionById(sessionId: string): Promise<void> {
   markDirty()
 }
 
-// Delete a feeding session and every weight entry inside it.
-// Transactional so we can't leave orphan entries pointing at a
-// no-longer-existing session. No-op if the session is already gone.
+// Soft-delete a feeding session by setting its `deleted` tombstone
+// flag and bumping `lastUpdatedAt`. Physical removal is unsafe in the
+// sync model — a missing-on-local entity is indistinguishable from
+// "remote has it but I haven't pulled yet," so the next merge would
+// resurrect it from Drive. The tombstone makes the deletion explicit
+// and LWW propagates it to peers.
 //
-// This is destructive — caller is expected to have confirmed with the
-// user. The graph view's "Delete feeding" button is the canonical
-// caller; future bulk-cleanup flows could share this helper.
+// Weight entries pointing at this session are left in place. They're
+// invisible at read time (no non-deleted session references them) and
+// occupy negligible space at foster-mama scale. A future cleanup pass
+// could physically prune entries of long-deleted sessions if needed.
+//
+// No-op if the session doesn't exist locally.
+//
+// Caller is expected to have confirmed with the user — this is
+// user-facing destructive UX from the graph's Delete button.
 export async function deleteSessionById(sessionId: string): Promise<void> {
-  await db.transaction(
-    'rw',
-    [db.feedingSessions, db.weightEntries],
-    async () => {
-      await db.feedingSessions.delete(sessionId)
-      await db.weightEntries
-        .where('sessionId')
-        .equals(sessionId)
-        .delete()
-    },
-  )
+  const session = await db.feedingSessions.get(sessionId)
+  if (!session) return
+  await db.feedingSessions.put(deleteSession(session, Date.now()))
   markDirty()
 }
 
@@ -278,7 +280,7 @@ export async function ensureOpenSessionWithRecordedAt(
     .where('litterId')
     .equals(litterId)
     .toArray()
-  const existing = all.find((s) => !s.completed)
+  const existing = all.find((s) => !s.completed && !s.deleted)
   if (existing) {
     if (recordedAt > 0 && existing.recordedAt !== recordedAt) {
       const updated = setRecordedAt(existing, recordedAt)

@@ -4,6 +4,7 @@ export {
   createSession,
   touchSession,
   completeSession,
+  deleteSession,
   sessionStatus,
   isStale,
   effectiveRecordedAt,

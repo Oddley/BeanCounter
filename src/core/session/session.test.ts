@@ -3,6 +3,7 @@ import {
   createSession,
   touchSession,
   completeSession,
+  deleteSession,
   sessionStatus,
   isStale,
   effectiveRecordedAt,
@@ -28,6 +29,7 @@ describe('createSession', () => {
       recordedAt: 0,
       completed: false,
       lockAcquired: true,
+      deleted: false,
     })
   })
 
@@ -219,5 +221,79 @@ describe('NullFeedingSession', () => {
   it('satisfies the FeedingSession interface', () => {
     const asSession: FeedingSession = NullFeedingSession
     expect(asSession).toBeDefined()
+  })
+
+  it('is not deleted', () => {
+    expect(NullFeedingSession.deleted).toBe(false)
+  })
+})
+
+describe('deleteSession', () => {
+  function fixture(overrides: Partial<FeedingSession> = {}): FeedingSession {
+    return {
+      id: 'S1',
+      litterId: 'L1',
+      createdAt: 100,
+      lastUpdatedAt: 200,
+      recordedAt: 0,
+      completed: false,
+      lockAcquired: true,
+      deleted: false,
+      ...overrides,
+    }
+  }
+
+  it('sets deleted=true', () => {
+    const s = fixture()
+    const result = deleteSession(s, 500)
+    expect(result.deleted).toBe(true)
+  })
+
+  it('bumps lastUpdatedAt to now', () => {
+    const s = fixture({ lastUpdatedAt: 200 })
+    const result = deleteSession(s, 500)
+    expect(result.lastUpdatedAt).toBe(500)
+  })
+
+  it('preserves all other fields', () => {
+    const s = fixture({
+      id: 'sess-uuid',
+      litterId: 'litter-uuid',
+      createdAt: 100,
+      recordedAt: 150,
+      completed: true,
+      lockAcquired: false,
+    })
+    const result = deleteSession(s, 500)
+    expect(result.id).toBe('sess-uuid')
+    expect(result.litterId).toBe('litter-uuid')
+    expect(result.createdAt).toBe(100)
+    expect(result.recordedAt).toBe(150)
+    expect(result.completed).toBe(true)
+    expect(result.lockAcquired).toBe(false)
+  })
+
+  it('does not mutate the input', () => {
+    const s = fixture()
+    deleteSession(s, 500)
+    expect(s.deleted).toBe(false)
+    expect(s.lastUpdatedAt).toBe(200)
+  })
+
+  it('is idempotent — re-deleting still bumps timestamp', () => {
+    const s = fixture()
+    const once = deleteSession(s, 500)
+    const twice = deleteSession(once, 700)
+    expect(twice.deleted).toBe(true)
+    expect(twice.lastUpdatedAt).toBe(700) // bumped further so a stale
+                                          // resurrection from remote
+                                          // is overridden by this fresh
+                                          // delete
+  })
+
+  it('works on NullFeedingSession (sets deleted=true)', () => {
+    const result = deleteSession(NullFeedingSession, 500)
+    expect(result.deleted).toBe(true)
+    expect(result.lastUpdatedAt).toBe(500)
   })
 })
