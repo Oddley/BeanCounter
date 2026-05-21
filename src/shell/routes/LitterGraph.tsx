@@ -62,6 +62,20 @@ export function LitterGraph() {
   // return) so hook order is consistent across renders.
   const now = useMemo<number>(() => Date.now(), [])
 
+  // Sorted by effectiveRecordedAt so the stepper arrows (below) move
+  // chronologically: ← = earlier feeding, → = later feeding. Declared
+  // up here (before any early return) for the same hook-order reason
+  // as `now` — placing it after the loading/not-found returns below
+  // would call useMemo conditionally and trigger React error #310.
+  const sortedLitterSessions = useMemo(
+    () =>
+      (allSessions ?? [])
+        .filter((s) => s.litterId === litterId)
+        .slice()
+        .sort((a, b) => effectiveRecordedAt(a) - effectiveRecordedAt(b)),
+    [allSessions, litterId],
+  )
+
   const loading =
     litter === undefined ||
     activeKittens === undefined ||
@@ -146,17 +160,6 @@ export function LitterGraph() {
   // hovers/drags/taps across the chart, mirroring Recharts' tooltip.
   // Only meaningful in rough mode, where each point corresponds to
   // exactly one session.
-  //
-  // Sorted by effectiveRecordedAt so the stepper arrows (below) move
-  // chronologically: ← = earlier feeding, → = later feeding.
-  const sortedLitterSessions = useMemo(
-    () =>
-      (allSessions ?? [])
-        .filter((s) => s.litterId === litterId)
-        .slice()
-        .sort((a, b) => effectiveRecordedAt(a) - effectiveRecordedAt(b)),
-    [allSessions, litterId],
-  )
   const handleTimeChange = (time: number) => {
     if (mode !== 'rough') return
     if (sortedLitterSessions.length === 0) return
