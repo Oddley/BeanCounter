@@ -254,61 +254,63 @@ export function LitterGraph() {
         {mode === 'rough' && (
           <div className={styles.editBar}>
             {selectedSession !== undefined && selectedTime !== null ? (
-              <>
-                <div className={styles.stepperRow}>
-                  <Button
-                    variant="secondary"
-                    onClick={stepPrev}
-                    disabled={!canStepPrev}
-                    aria-label="Previous feeding"
-                    className={styles.stepperButton}
-                  >
-                    ‹
-                  </Button>
+              // 3-column grid: prev arrow | Edit+Delete stack | next arrow.
+              // align-items: center on the grid puts the arrows vertically
+              // centered against the taller middle column.
+              <div className={styles.controlGrid}>
+                <Button
+                  variant="secondary"
+                  onClick={stepPrev}
+                  disabled={!canStepPrev}
+                  aria-label="Previous feeding"
+                  className={styles.stepperButton}
+                >
+                  ‹
+                </Button>
+                <div className={styles.centerStack}>
                   <Button
                     onClick={() => {
                       void navigate(
                         `/litters/${litterId}/edit-feeding/${selectedSession.id}`,
                       )
                     }}
-                    className={styles.editButton}
                   >
                     Edit feeding at {formatFeedingTime(selectedTime, now)}
                   </Button>
                   <Button
-                    variant="secondary"
-                    onClick={stepNext}
-                    disabled={!canStepNext}
-                    aria-label="Next feeding"
-                    className={styles.stepperButton}
+                    variant="danger"
+                    onClick={() => {
+                      // Destructive: nukes the session and all its weight
+                      // entries. Confirm with the user before committing.
+                      // window.confirm matches the established pattern in
+                      // Debug.tsx (wipe-all-data flow).
+                      const formatted = formatFeedingTime(selectedTime, now)
+                      const ok = window.confirm(
+                        `Delete the feeding at ${formatted}? All weight entries for this feeding will be removed. This can't be undone.`,
+                      )
+                      if (!ok) return
+                      const sessionId = selectedSession.id
+                      setSelectedSessionId(null)
+                      void deleteSessionById(sessionId).then(() => {
+                        // Fire-and-forget sync so the deletion propagates
+                        // to other devices without waiting for navigation.
+                        void runSync()
+                      })
+                    }}
                   >
-                    ›
+                    Delete feeding
                   </Button>
                 </div>
                 <Button
-                  variant="danger"
-                  onClick={() => {
-                    // Destructive: nukes the session and all its weight
-                    // entries. Confirm with the user before committing.
-                    // window.confirm matches the established pattern in
-                    // Debug.tsx (wipe-all-data flow).
-                    const formatted = formatFeedingTime(selectedTime, now)
-                    const ok = window.confirm(
-                      `Delete the feeding at ${formatted}? All weight entries for this feeding will be removed. This can't be undone.`,
-                    )
-                    if (!ok) return
-                    const sessionId = selectedSession.id
-                    setSelectedSessionId(null)
-                    void deleteSessionById(sessionId).then(() => {
-                      // Fire-and-forget sync so the deletion propagates
-                      // to other devices without waiting for navigation.
-                      void runSync()
-                    })
-                  }}
+                  variant="secondary"
+                  onClick={stepNext}
+                  disabled={!canStepNext}
+                  aria-label="Next feeding"
+                  className={styles.stepperButton}
                 >
-                  Delete feeding
+                  ›
                 </Button>
-              </>
+              </div>
             ) : (
               <p className={styles.editHint}>
                 Tap a feeding on the graph to edit it.

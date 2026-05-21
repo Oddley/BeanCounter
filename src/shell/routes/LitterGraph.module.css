@@ -33,31 +33,32 @@
 
 .editBar {
   margin-top: var(--space-4);
+}
+
+.controlGrid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.centerStack {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0; /* let edit-button text ellipsize cleanly */
 }
 
-.editBar > button {
+.centerStack > button {
   width: 100%;
 }
 
-.stepperRow {
-  display: flex;
-  gap: var(--space-2);
-  align-items: stretch;
-}
-
 .stepperButton {
-  flex: 0 0 var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
   font-size: 1.4rem;
   line-height: 1;
   padding: 0;
-}
-
-.editButton {
-  flex: 1 1 auto;
-  min-width: 0; /* allow text to ellipsize cleanly within the row */
 }
 
 .editHint {
