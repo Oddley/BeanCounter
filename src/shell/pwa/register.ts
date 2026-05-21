@@ -7,7 +7,6 @@ import { setPwaStatus } from './state'
 
 const UPDATE_CHECK_INTERVAL_MS = 60_000
 
-let updateTrigger: ((reloadPage?: boolean) => Promise<void>) | null = null
 let installed = false
 let pollInterval: ReturnType<typeof setInterval> | null = null
 
@@ -15,7 +14,12 @@ export function installPwaRegistration(): void {
   if (installed) return
   installed = true
 
-  updateTrigger = registerSW({
+  // registerSW returns an updateServiceWorker function we used to call
+  // from applyPendingUpdate. We no longer use it (the unregister-and-
+  // reload path is more reliable), but we still need to invoke
+  // registerSW for its side effect of wiring the onNeedRefresh /
+  // onRegisteredSW / etc. callbacks that drive the indicator.
+  registerSW({
     onNeedRefresh() {
       setPwaStatus({ needsRefresh: true })
     },
@@ -49,12 +53,34 @@ export function installPwaRegistration(): void {
   })
 }
 
-// User-gesture trigger: activate the waiting SW and reload the page.
-// Safe to call when no update is pending — falls back to plain reload.
+// User-gesture trigger for the "Reload to update" button in Settings.
+//
+// We *don't* go through vite-plugin-pwa's updateServiceWorker /
+// skipWaiting handshake. That handshake can silently fail when the
+// waiting SW is already in a transitional state (or when the
+// 'controlling' event listener races with the click), leaving the user
+// tapping a button that does nothing.
+//
+// Instead: unregister every service worker for this origin, then
+// reload. The reloaded page fetches fresh assets from the CDN and
+// registers a brand-new SW with the latest code. Slower than the
+// skipWaiting path (one extra network round-trip's worth of un-
+// caching), but guaranteed to actually give the user the new version.
+//
+// The fire-and-forget shape means the click handler doesn't need to
+// await — the function navigates the page away as a side effect.
 export function applyPendingUpdate(): void {
-  if (updateTrigger !== null) {
-    void updateTrigger(true)
-  } else {
+  void (async () => {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations =
+          await navigator.serviceWorker.getRegistrations()
+        await Promise.all(registrations.map((r) => r.unregister()))
+      } catch {
+        // SW unregister failures are non-fatal — just proceed to reload.
+        // The new version may still come through on a fresh fetch.
+      }
+    }
     window.location.reload()
-  }
+  })()
 }
