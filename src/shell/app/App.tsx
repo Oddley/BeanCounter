@@ -16,6 +16,7 @@ import {
   Settings,
   Invite,
   ConflictResolution,
+  ErrorBoundary,
   Debug,
   NotFound,
 } from '../routes'
@@ -40,6 +41,11 @@ function SyncOnNavLayout() {
 const router = createBrowserRouter([
   {
     element: <SyncOnNavLayout />,
+    // errorElement on the root layout catches render-time errors from
+    // any child route. Falls back to a friendlier UI with a one-tap
+    // crash-report affordance instead of React Router's default
+    // developer-targeted error page. Closes GitHub issue #17.
+    errorElement: <ErrorBoundary />,
     children: [
       { path: '/', element: <Home /> },
       { path: '/litters', element: <LitterList /> },

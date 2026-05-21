@@ -1,0 +1,66 @@
+.main {
+  padding: var(--space-4);
+}
+
+.intro {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.muted {
+  color: var(--color-fg-muted);
+  font-size: 0.9rem;
+  margin-top: var(--space-3);
+}
+
+.errorBox {
+  padding: var(--space-3);
+  border: 1px solid #ff6b6b;
+  border-radius: var(--radius);
+  background: rgba(255, 107, 107, 0.08);
+  margin: var(--space-3) 0;
+  overflow-x: auto;
+}
+
+.message {
+  margin: 0;
+  font-family: ui-monospace, 'Cascadia Code', 'Menlo', monospace;
+  font-size: 0.9rem;
+  color: #ff6b6b;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.details {
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  background: #161616;
+  border-radius: var(--radius);
+}
+
+.details > summary {
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--color-fg-muted);
+}
+
+.stack {
+  margin: var(--space-3) 0 0 0;
+  font-family: ui-monospace, 'Cascadia Code', 'Menlo', monospace;
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.buttons > * {
+  width: 100%;
+}
