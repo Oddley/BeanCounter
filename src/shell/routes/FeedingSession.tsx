@@ -81,6 +81,11 @@ export function FeedingSession() {
   // against the completeSession write.
   const pendingWritesRef = useRef<Set<Promise<unknown>>>(new Set())
 
+  // Set to true on first keystroke. Guards the hydration effect from
+  // clobbering typed data when the session is created (and the live
+  // query updates) before the weight entry write has landed in Dexie.
+  const userHasTypedRef = useRef(false)
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const timePickerRef = useRef<HTMLInputElement>(null)
 
@@ -102,6 +107,13 @@ export function FeedingSession() {
     if (openSession === undefined || openSession === null) return
     if (entries === undefined) return
     if (hydratedSessionIdRef.current === openSession.id) return
+    // The user typed before the session's first weight entry landed in
+    // Dexie: entries is still empty but local state already has data.
+    // Mark as hydrated and bail — don't wipe the keystroke.
+    if (userHasTypedRef.current && entries.length === 0) {
+      hydratedSessionIdRef.current = openSession.id
+      return
+    }
     const initial: Record<string, string> = {}
     for (const e of entries) {
       initial[e.kittenId] = String(e.grams)
@@ -147,6 +159,7 @@ export function FeedingSession() {
 
   const handleChange = (kittenId: string, raw: string) => {
     const sanitized = raw.replace(/[^\d]/g, '')
+    userHasTypedRef.current = true
     setWeights((prev) => ({ ...prev, [kittenId]: sanitized }))
     persistWeight(kittenId, sanitized)
   }
@@ -188,6 +201,7 @@ export function FeedingSession() {
     // Reset hydration so a new session (after this completes) starts
     // with a fresh empty weights map.
     hydratedSessionIdRef.current = null
+    userHasTypedRef.current = false
     setWeights({})
     // Fire-and-forget immediate sync on Submit. completeSession marks
     // dirty, but the nav that follows is a sibling sync trigger too;
