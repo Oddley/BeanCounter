@@ -162,7 +162,11 @@ export function LitterDetail() {
 
   return (
     <>
-      <AppBar title={litter.name} backTo="/litters" />
+      <AppBar
+        title={litter.name}
+        backTo="/litters"
+        {...(reorderMode ? { onBack: () => setReorderMode(false) } : {})}
+      />
       <main className={styles.main}>
         {!reorderMode && litter.active && (
           <section className={styles.section}>

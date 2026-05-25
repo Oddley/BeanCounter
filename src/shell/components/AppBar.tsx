@@ -6,13 +6,21 @@ import styles from './AppBar.module.css'
 export interface AppBarProps {
   readonly title: string
   readonly backTo?: string
+  // When provided, called instead of the default navigate-back logic.
+  // Use when back should perform an in-page state change (e.g. exit
+  // a sub-mode) rather than leaving the route.
+  readonly onBack?: () => void
 }
 
-export function AppBar({ title, backTo }: AppBarProps) {
+export function AppBar({ title, backTo, onBack }: AppBarProps) {
   const navigate = useNavigate()
   const navDepth = useNavDepth()
 
   const handleBack = () => {
+    if (onBack !== undefined) {
+      onBack()
+      return
+    }
     // navDepth counts net PUSH navigations since app launch (PUSH +1,
     // POP -1, REPLACE ±0). It is always 0 on cold launch and correctly
     // decrements on every system-back, so it reflects the real position
