@@ -5,6 +5,7 @@ import {
   useLocation,
   Outlet,
 } from 'react-router-dom'
+import { NavDepthProvider } from './NavDepthProvider'
 import {
   Home,
   LitterList,
@@ -35,7 +36,11 @@ function SyncOnNavLayout() {
       void runSync()
     }
   }, [location.pathname])
-  return <Outlet />
+  return (
+    <NavDepthProvider>
+      <Outlet />
+    </NavDepthProvider>
+  )
 }
 
 const router = createBrowserRouter([
