@@ -210,7 +210,7 @@ export function WeightChart({
                 name={s.displayName}
                 stroke={kittenColor(s.order)}
                 strokeWidth={2}
-                dot={{ r: 3, strokeWidth: 0, fill: kittenColor(s.order) }}
+                dot={false}
                 activeDot={{ r: 5 }}
                 isAnimationActive={false}
               />
