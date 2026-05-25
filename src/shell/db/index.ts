@@ -18,6 +18,7 @@ export {
   useAllKittens,
   useSettings,
   useOpenSessionForLitter,
+  useLastCompletedSessionForLitter,
   useSession,
   useWeightEntriesForSession,
   useWeightForKittenInSession,

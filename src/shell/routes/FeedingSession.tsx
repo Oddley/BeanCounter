@@ -5,6 +5,7 @@ import {
   useLitter,
   useActiveKittens,
   useOpenSessionForLitter,
+  useLastCompletedSessionForLitter,
   useWeightEntriesForSession,
   ensureOpenSessionForLitter,
   ensureOpenSessionWithRecordedAt,
@@ -66,6 +67,8 @@ export function FeedingSession() {
   const kittens = useActiveKittens(litterId)
   const openSession = useOpenSessionForLitter(litterId)
   const entries = useWeightEntriesForSession(openSession?.id ?? '')
+  const prevSession = useLastCompletedSessionForLitter(litterId)
+  const prevEntries = useWeightEntriesForSession(prevSession?.id ?? '')
 
   const [now, setNow] = useState<number>(() => Date.now())
   // Parent-owned weights state: source of truth for "what the user has
@@ -260,6 +263,17 @@ export function FeedingSession() {
   const isUserModified =
     openSession !== null && openSession.recordedAt > 0
 
+  const prevGramsMap: Record<string, number> = {}
+  if (prevSession !== null && prevSession !== undefined && prevEntries !== undefined) {
+    for (const e of prevEntries) {
+      prevGramsMap[e.kittenId] = e.grams
+    }
+  }
+  const prevSessionTime =
+    prevSession !== null && prevSession !== undefined
+      ? effectiveRecordedAt(prevSession)
+      : null
+
   const handleTimePicked = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -324,6 +338,12 @@ export function FeedingSession() {
           )}
         </div>
 
+        {prevSessionTime !== null && (
+          <p className={styles.lastWeighed}>
+            (Last weighed: {formatClockTime(prevSessionTime, now)})
+          </p>
+        )}
+
         {kittens.length === 0 ? (
           <p className={styles.muted}>
             No active kittens in this litter. Add one before recording
@@ -331,23 +351,27 @@ export function FeedingSession() {
           </p>
         ) : (
           <ul className={styles.list}>
-            {kittens.map((kitten, i) => (
-              <KittenWeightRow
-                key={kitten.id}
-                kitten={kitten}
-                value={weights[kitten.id] ?? ''}
-                isLast={i === kittens.length - 1}
-                inputRef={(el) => {
-                  inputRefs.current[i] = el
-                }}
-                onChange={(text) => {
-                  handleChange(kitten.id, text)
-                }}
-                onEnter={() => {
-                  handleEnterAtRow(i)
-                }}
-              />
-            ))}
+            {kittens.map((kitten, i) => {
+              const prevG = prevGramsMap[kitten.id]
+              return (
+                <KittenWeightRow
+                  key={kitten.id}
+                  kitten={kitten}
+                  value={weights[kitten.id] ?? ''}
+                  {...(prevG !== undefined ? { previousGrams: prevG } : {})}
+                  isLast={i === kittens.length - 1}
+                  inputRef={(el) => {
+                    inputRefs.current[i] = el
+                  }}
+                  onChange={(text) => {
+                    handleChange(kitten.id, text)
+                  }}
+                  onEnter={() => {
+                    handleEnterAtRow(i)
+                  }}
+                />
+              )
+            })}
           </ul>
         )}
 
@@ -364,6 +388,7 @@ export function FeedingSession() {
 interface KittenWeightRowProps {
   readonly kitten: Kitten
   readonly value: string
+  readonly previousGrams?: number
   readonly isLast: boolean
   readonly inputRef: (el: HTMLInputElement | null) => void
   readonly onChange: (text: string) => void
@@ -373,6 +398,7 @@ interface KittenWeightRowProps {
 function KittenWeightRow({
   kitten,
   value,
+  previousGrams,
   isLast,
   inputRef,
   onChange,
@@ -385,6 +411,9 @@ function KittenWeightRow({
     <li className={styles.row}>
       <div className={styles.rowName}>{kitten.displayName}</div>
       <div className={styles.rowInput}>
+        {previousGrams !== undefined && (
+          <span className={styles.prevWeight}>({previousGrams}g)</span>
+        )}
         <input
           ref={inputRef}
           type="text"

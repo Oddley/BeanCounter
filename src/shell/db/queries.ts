@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { type Litter, NullLitter } from '../../core/litter'
 import { type Kitten } from '../../core/kitten'
 import { type AppSettings } from '../../core/settings'
-import { type FeedingSession } from '../../core/session'
+import { type FeedingSession, effectiveRecordedAt } from '../../core/session'
 import { type WeightEntry, weightEntryId } from '../../core/weight'
 import { db, SETTINGS_SINGLETON_ID, type ConflictRecord } from './dexie'
 
@@ -94,6 +94,24 @@ export function useWeightForKittenInSession(
     const found = await db.weightEntries.get(weightEntryId(sessionId, kittenId))
     return found ?? null
   }, [sessionId, kittenId])
+}
+
+export function useLastCompletedSessionForLitter(
+  litterId: string,
+): FeedingSession | undefined | null {
+  // undefined = loading, null = no completed session exists
+  return useLiveQuery(async () => {
+    if (!litterId) return null
+    const all = await db.feedingSessions
+      .where('litterId')
+      .equals(litterId)
+      .toArray()
+    const completed = all.filter((s) => s.completed && !s.deleted)
+    if (completed.length === 0) return null
+    return completed.reduce((best, s) =>
+      effectiveRecordedAt(s) > effectiveRecordedAt(best) ? s : best,
+    )
+  }, [litterId])
 }
 
 export function useAllSessions(): FeedingSession[] | undefined {
