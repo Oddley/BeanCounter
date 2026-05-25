@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { SyncIndicator } from './SyncIndicator'
 import styles from './AppBar.module.css'
 
@@ -9,13 +9,14 @@ export interface AppBarProps {
 
 export function AppBar({ title, backTo }: AppBarProps) {
   const navigate = useNavigate()
-  const location = useLocation()
 
   const handleBack = () => {
-    // location.key is 'default' only when the app opened cold to this
-    // page with no prior history entry. In that case fall back to the
-    // semantic backTo target so the button always goes somewhere useful.
-    if (location.key !== 'default') {
+    // window.history.length > 1 means there is at least one prior entry
+    // to pop. On a PWA cold launch Chrome restores the page's
+    // history.state (making location.key non-'default') but does NOT
+    // restore the full stack, so history.length is 1 and navigate(-1)
+    // silently fails. history.length is the reliable indicator.
+    if (window.history.length > 1) {
       navigate(-1)
     } else if (backTo !== undefined) {
       navigate(backTo, { replace: true })
