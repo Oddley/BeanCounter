@@ -17,6 +17,7 @@ import {
   setStickyLitterById,
   clearStickyLitterById,
   persistKittenOrder,
+  db,
 } from '../db'
 import { hasStickyLitter } from '../../core/settings'
 import { validateLitterName } from '../../core/litter'
@@ -25,7 +26,20 @@ import {
   moveKittenUp,
   moveKittenDown,
 } from '../../core/kitten'
+import { buildCsv } from '../../core/export'
 import styles from './LitterDetail.module.css'
+
+function downloadCsv(content: string, filename: string): void {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 export function LitterDetail() {
   const { id = '' } = useParams<{ id: string }>()
@@ -36,6 +50,7 @@ export function LitterDetail() {
   const openSession = useOpenSessionForLitter(id)
 
   const [showArchived, setShowArchived] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [addingKitten, setAddingKitten] = useState(false)
@@ -117,6 +132,31 @@ export function LitterDetail() {
     await persistKittenOrder(updated)
   }
 
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const allKittens = await db.kittens.where('litterId').equals(id).toArray()
+      const allSessions = await db.feedingSessions
+        .where('litterId')
+        .equals(id)
+        .filter((s) => s.completed && !s.deleted)
+        .toArray()
+      const sessionIds = allSessions.map((s) => s.id)
+      const allEntries =
+        sessionIds.length > 0
+          ? await db.weightEntries.where('sessionId').anyOf(sessionIds).toArray()
+          : []
+      const csv = buildCsv({
+        kittens: allKittens,
+        sessions: allSessions,
+        entries: allEntries,
+      })
+      downloadCsv(csv, `${litter.name} weights.csv`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const canReorder =
     activeKittens !== undefined && activeKittens.length >= 2
 
@@ -143,6 +183,19 @@ export function LitterDetail() {
                 📈 Graph
               </Button>
             </Link>
+          </section>
+        )}
+
+        {!reorderMode && (
+          <section className={styles.section}>
+            <Button
+              variant="secondary"
+              className={styles.primaryActionButton}
+              disabled={isExporting}
+              onClick={() => { void handleExport() }}
+            >
+              {isExporting ? 'Exporting…' : '📥 Export to spreadsheet'}
+            </Button>
           </section>
         )}
 
