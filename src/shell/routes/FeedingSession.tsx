@@ -193,7 +193,7 @@ export function FeedingSession() {
     // dirty, but the nav that follows is a sibling sync trigger too;
     // explicit runSync here just hurries it.
     void runSync()
-    void navigate(`/litters/${litterId}`)
+    void navigate(`/litters/${litterId}/graph`, { replace: true })
   }
 
   const onSubmit = () => {
