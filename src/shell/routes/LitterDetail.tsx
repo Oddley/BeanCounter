@@ -29,8 +29,7 @@ import {
 import { buildCsv } from '../../core/export'
 import styles from './LitterDetail.module.css'
 
-function downloadCsv(content: string, filename: string): void {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -51,6 +50,7 @@ export function LitterDetail() {
 
   const [showArchived, setShowArchived] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [addingKitten, setAddingKitten] = useState(false)
@@ -151,7 +151,20 @@ export function LitterDetail() {
         sessions: allSessions,
         entries: allEntries,
       })
-      downloadCsv(csv, `${litter.name} weights.csv`)
+      const filename = `${litter.name} weights.csv`
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const file = new File([blob], filename, { type: 'text/csv' })
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] })
+        } catch (err) {
+          if (err instanceof Error && err.name !== 'AbortError') throw err
+        }
+      } else {
+        downloadBlob(blob, filename)
+        setExportMessage('Saved to your Downloads folder')
+        setTimeout(() => setExportMessage(null), 4000)
+      }
     } finally {
       setIsExporting(false)
     }
@@ -200,6 +213,9 @@ export function LitterDetail() {
             >
               {isExporting ? 'Exporting…' : '📥 Export to spreadsheet'}
             </Button>
+            {exportMessage !== null && (
+              <p className={styles.exportMessage}>{exportMessage}</p>
+            )}
           </section>
         )}
 
