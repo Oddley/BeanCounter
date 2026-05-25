@@ -41,3 +41,9 @@ body:
     attributes:
       label: Anything else?
       description: Screenshots, error messages, when it started happening, etc.
+
+  - type: textarea
+    id: diagnostic_info
+    attributes:
+      label: Diagnostic info
+      description: Auto-filled when opening from the app — leave as-is. If filing from GitHub directly, leave blank.

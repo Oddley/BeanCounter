@@ -616,11 +616,12 @@ export function Settings() {
             <Button
               variant="secondary"
               onClick={() => {
-                window.open(
-                  'https://github.com/Oddley/BeanCounter/issues/new?template=bug_report.yml',
-                  '_blank',
-                  'noopener,noreferrer',
-                )
+                const info = `App version: ${__APP_VERSION__}\nUser-agent: ${navigator.userAgent}`
+                const url =
+                  'https://github.com/Oddley/BeanCounter/issues/new' +
+                  '?template=bug_report.yml' +
+                  `&diagnostic_info=${encodeURIComponent(info)}`
+                window.open(url, '_blank', 'noopener,noreferrer')
               }}
             >
               Report a bug
