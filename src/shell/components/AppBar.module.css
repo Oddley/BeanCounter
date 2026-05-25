@@ -38,6 +38,10 @@
   color: var(--color-fg);
   text-decoration: none;
   border-radius: var(--radius);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .back:active {
