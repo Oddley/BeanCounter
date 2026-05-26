@@ -61,19 +61,6 @@ export function LitterGraph() {
   // return) so hook order is consistent across renders.
   const now = useMemo<number>(() => Date.now(), [])
 
-  // Per-kitten grams for the selected session, forwarded to KittenLegend
-  // so the user can read weights after lifting their finger (Recharts'
-  // tooltip disappears on touch-end). Declared before any early return
-  // for hook-order consistency. Closes GitHub issue #26.
-  const selectedWeights = useMemo(() => {
-    if (selectedSessionId === null) return new Map<string, number>()
-    return new Map(
-      (allEntries ?? [])
-        .filter((e) => e.sessionId === selectedSessionId)
-        .map((e) => [e.kittenId, e.grams]),
-    )
-  }, [selectedSessionId, allEntries])
-
   // Sorted by effectiveRecordedAt so the stepper arrows (below) move
   // chronologically: ← = earlier feeding, → = later feeding. Declared
   // up here (before any early return) for the same hook-order reason
@@ -139,6 +126,29 @@ export function LitterGraph() {
     mode,
     focusedKittenId,
   ])
+
+  // Per-kitten grams for the selected session, forwarded to KittenLegend.
+  // Derived from seriesAll (same source as ReferenceDots) rather than from
+  // allEntries filtered by sessionId: the two pipelines can disagree when
+  // sessions appear in sortedLitterSessions but not in the rendered series
+  // (e.g. incomplete sessions, mode-filtered points). Using seriesAll keeps
+  // the legend badge and the persistent dot always in sync.
+  // Declared before any early return for hook-order consistency.
+  // Closes GitHub issue #26.
+  const selectedWeights = useMemo(() => {
+    if (selectedSessionId === null) return new Map<string, number>()
+    const session = sortedLitterSessions.find((s) => s.id === selectedSessionId)
+    if (session === undefined) return new Map<string, number>()
+    const time = effectiveRecordedAt(session)
+    const map = new Map<string, number>()
+    for (const s of seriesAll) {
+      const pt = (s.points as Array<{ time: number; grams: number }>).find(
+        (p) => p.time === time,
+      )
+      if (pt !== undefined) map.set(s.kittenId, pt.grams)
+    }
+    return map
+  }, [selectedSessionId, sortedLitterSessions, seriesAll])
 
   if (loading) {
     return (

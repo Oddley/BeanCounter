@@ -176,12 +176,15 @@ export function WeightChart({
     )
   }
 
-  // Fires on every touchstart so a selection is established even when the
-  // drag begins over a chart margin or the background grid — areas where
-  // Recharts' tooltip engine never activates. Converts the raw touch X to
-  // an x-axis time via the known chart geometry constants and delegates to
-  // the same handleTimeChange the tooltip uses. Closes GitHub issue #25.
-  const handleWrapTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+  // Runs on every touchstart AND touchmove so selection tracks the finger
+  // continuously — even when the drag began over a margin/background area
+  // where Recharts' tooltip never activates. Without onTouchMove the
+  // selection is frozen at the initial snap, leaving the arrows at the
+  // edge session (canStepPrev/Next false) after the drag. Converts raw
+  // touch X to an x-axis time via the known chart geometry constants and
+  // delegates to the same handleTimeChange the Recharts tooltip uses.
+  // Closes GitHub issues #25 and #26 (drag path).
+  const handleWrapTouch = (e: React.TouchEvent<HTMLDivElement>) => {
     if (onTimeChange === undefined) return
     const touch = e.touches[0]
     if (touch === undefined) return
@@ -201,7 +204,12 @@ export function WeightChart({
   }
 
   return (
-    <div className={styles.wrap} ref={wrapRef} onTouchStart={handleWrapTouchStart}>
+    <div
+      className={styles.wrap}
+      ref={wrapRef}
+      onTouchStart={handleWrapTouch}
+      onTouchMove={handleWrapTouch}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart margin={{ top: 8, right: 16, bottom: 8, left: 4 }}>
           <CartesianGrid stroke="#2a2a2a" strokeDasharray="3 3" />
