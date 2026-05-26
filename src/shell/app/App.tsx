@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import {
   createBrowserRouter,
   RouterProvider,
@@ -13,7 +13,6 @@ import {
   NewLitter,
   FeedingSession,
   EditFeeding,
-  LitterGraph,
   Settings,
   Invite,
   ConflictResolution,
@@ -21,6 +20,14 @@ import {
   Debug,
   NotFound,
 } from '../routes'
+
+// Lazy-loaded so Recharts and its D3 dependencies land in a separate chunk.
+// The service worker precaches this chunk at install time, so there is no
+// network cost at navigation time — only a one-time JS parse the first visit
+// per session. Closes GitHub issue #5.
+const LitterGraph = lazy(() =>
+  import('../routes/LitterGraph').then((m) => ({ default: m.LitterGraph })),
+)
 import { hasStoredConnection } from '../auth'
 import { attemptBootReconnect, isDirty, runSync } from '../sync'
 import { installPwaRegistration } from '../pwa'
@@ -61,7 +68,14 @@ const router = createBrowserRouter([
         path: '/litters/:litterId/edit-feeding/:sessionId',
         element: <EditFeeding />,
       },
-      { path: '/litters/:id/graph', element: <LitterGraph /> },
+      {
+        path: '/litters/:id/graph',
+        element: (
+          <Suspense fallback={null}>
+            <LitterGraph />
+          </Suspense>
+        ),
+      },
       { path: '/settings', element: <Settings /> },
       { path: '/invite', element: <Invite /> },
       { path: '/conflicts', element: <ConflictResolution /> },

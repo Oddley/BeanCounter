@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import {
-  AppBar,
-  Button,
-  GraphModeToggle,
-  KittenLegend,
-  WeightChart,
-} from '../components'
+import { AppBar, Button } from '../components'
+// Direct path imports — these bring in Recharts and must stay out of the
+// components barrel so the lazy-load split in App.tsx is effective.
+import { WeightChart } from '../components/WeightChart'
+import { KittenLegend } from '../components/KittenLegend'
+import { GraphModeToggle } from '../components/GraphModeToggle'
 import {
   useLitter,
   useActiveKittens,

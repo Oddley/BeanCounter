@@ -4,7 +4,9 @@ export { LitterDetail } from './LitterDetail'
 export { NewLitter } from './NewLitter'
 export { FeedingSession } from './FeedingSession'
 export { EditFeeding } from './EditFeeding'
-export { LitterGraph } from './LitterGraph'
+// LitterGraph is intentionally NOT exported from this barrel.
+// It is lazy-imported directly in App.tsx to keep Recharts in a separate chunk.
+// Do not add it back here.
 export { Settings } from './Settings'
 export { Invite } from './Invite'
 export { ConflictResolution } from './ConflictResolution'
