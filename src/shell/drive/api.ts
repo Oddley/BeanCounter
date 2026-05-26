@@ -81,17 +81,28 @@ export async function findOrCreateFolder(
   return data.id
 }
 
+export interface FileContent {
+  readonly content: string
+  // Drive returns a strong ETag on file fetches. Captured here so the
+  // orchestrator can send If-Match on the subsequent write, turning the
+  // read-merge-write cycle into an optimistic-concurrency transaction.
+  // null if Drive omitted the header (degraded: no race protection).
+  readonly etag: string | null
+}
+
 export async function readFileContent(
   token: string,
   fileId: string,
-): Promise<string> {
+): Promise<FileContent> {
   // supportsAllDrives is required for some Drive scenarios (shared
   // drives, certain shared-folder edge cases) and is a no-op for
   // personal-drive files. Including it defensively avoids 404s when
   // the file's reachability depends on Drive resolving cross-context.
   const url = `${DRIVE_API_BASE}/files/${fileId}?alt=media&supportsAllDrives=true`
   const response = await driveFetch(token, url)
-  return response.text()
+  const content = await response.text()
+  const etag = response.headers.get('etag')
+  return { content, etag }
 }
 
 export interface WriteFileOptions {
@@ -100,6 +111,10 @@ export interface WriteFileOptions {
   readonly content: string
   readonly existingFileId?: string
   readonly mimeType?: string
+  // When provided, sent as If-Match on PATCH requests. Drive returns 412
+  // if the file was modified by another client since this etag was captured,
+  // allowing the caller to re-read, re-merge, and retry.
+  readonly ifMatch?: string
 }
 
 export async function writeFile(
@@ -110,9 +125,13 @@ export async function writeFile(
 
   if (options.existingFileId !== undefined) {
     const url = `${DRIVE_UPLOAD_BASE}/files/${options.existingFileId}?uploadType=media`
+    const patchHeaders: Record<string, string> = { 'Content-Type': mimeType }
+    if (options.ifMatch !== undefined) {
+      patchHeaders['If-Match'] = options.ifMatch
+    }
     const response = await driveFetch(token, url, {
       method: 'PATCH',
-      headers: { 'Content-Type': mimeType },
+      headers: patchHeaders,
       body: options.content,
     })
     const data = (await response.json()) as DriveFile

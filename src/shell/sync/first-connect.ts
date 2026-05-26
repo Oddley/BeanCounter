@@ -25,6 +25,10 @@ export interface InspectionExists {
   readonly folderId: string
   readonly fileId: string
   readonly file: ActiveFile
+  // ETag captured from the Drive response header. Forwarded to pushSnapshot
+  // as If-Match so a concurrent write from another device yields 412 instead
+  // of silent data loss. null if Drive omitted the header.
+  readonly etag: string | null
 }
 
 export interface InspectionUnreadable {
@@ -56,7 +60,7 @@ export async function inspectDrive(
   // search ALSO fails and surfaces a misleading 'empty' result.
   if (knownFileId !== undefined) {
     try {
-      const content = await readFileContent(token, knownFileId)
+      const { content, etag } = await readFileContent(token, knownFileId)
       const parsed = parseActiveFile(content)
       if (!parsed.ok) {
         return {
@@ -71,6 +75,7 @@ export async function inspectDrive(
         folderId,
         fileId: knownFileId,
         file: parsed.file,
+        etag,
       }
     } catch (err) {
       const message =
@@ -92,7 +97,7 @@ export async function inspectDrive(
   if (first === undefined) {
     return { kind: 'empty', folderId }
   }
-  const content = await readFileContent(token, first.id)
+  const { content, etag } = await readFileContent(token, first.id)
   const parsed = parseActiveFile(content)
   if (!parsed.ok) {
     return {
@@ -107,6 +112,7 @@ export async function inspectDrive(
     folderId,
     fileId: first.id,
     file: parsed.file,
+    etag,
   }
 }
 

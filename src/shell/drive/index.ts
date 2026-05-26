@@ -7,4 +7,5 @@ export {
   DriveError,
   type DriveFile,
   type WriteFileOptions,
+  type FileContent,
 } from './api'
