@@ -28,7 +28,38 @@ src/
       CLAUDE.md   ← feature entry points and side effects
 docs/
   adr/            ← one file per architectural decision
+public/
+  robots.txt      ← allow all crawlers (User-agent: * / Disallow:)
 ```
+
+## Route / Barrel Split (do not undo)
+
+`src/shell/routes/index.ts` only exports **eager** routes: `Home`, `LitterList`, `LitterDetail`, `NewLitter`, `FeedingSession`, `ErrorBoundary`. These land in the main bundle.
+
+The following are **lazy-loaded** via `React.lazy()` in `App.tsx` and must **not** be re-added to the barrel:
+
+| Route | Why lazy |
+|---|---|
+| `LitterGraph` | Pulls in Recharts + D3 (~360 KB chunk). Closes #5. |
+| `EditFeeding` | Non-critical path |
+| `Settings` | Infrequent |
+| `Invite` | One-time setup |
+| `ConflictResolution` | Rare |
+| `Debug` | Dev-only |
+| `NotFound` | Error path |
+
+`WeightChart`, `KittenLegend`, and `GraphModeToggle` are also **not** in the components barrel — they import Recharts and must remain reachable only from the lazy `LitterGraph` chunk.
+
+## Deployment
+
+No CI pipeline. Deploy manually from an interactive terminal (wrangler needs browser OAuth):
+
+```
+npm run build
+npx wrangler pages deploy dist --project-name bean-counter-branden-conley
+```
+
+Cloudflare auto-deploys from the `main` branch. The `cloudflare/workers-autoconfig` branch is Cloudflare's auto-generated config branch — ignore it, the production branch is `main`.
 
 ## Key Invariants (these override everything else)
 
