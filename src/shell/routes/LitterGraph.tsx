@@ -61,6 +61,19 @@ export function LitterGraph() {
   // return) so hook order is consistent across renders.
   const now = useMemo<number>(() => Date.now(), [])
 
+  // Per-kitten grams for the selected session, forwarded to KittenLegend
+  // so the user can read weights after lifting their finger (Recharts'
+  // tooltip disappears on touch-end). Declared before any early return
+  // for hook-order consistency. Closes GitHub issue #26.
+  const selectedWeights = useMemo(() => {
+    if (selectedSessionId === null) return new Map<string, number>()
+    return new Map(
+      (allEntries ?? [])
+        .filter((e) => e.sessionId === selectedSessionId)
+        .map((e) => [e.kittenId, e.grams]),
+    )
+  }, [selectedSessionId, allEntries])
+
   // Sorted by effectiveRecordedAt so the stepper arrows (below) move
   // chronologically: ← = earlier feeding, → = later feeding. Declared
   // up here (before any early return) for the same hook-order reason
@@ -248,6 +261,7 @@ export function LitterGraph() {
           seriesList={seriesAll}
           focusedKittenId={focusedKittenId}
           onToggleFocus={handleToggleFocus}
+          selectedWeights={selectedWeights}
         />
 
         {mode === 'rough' && (

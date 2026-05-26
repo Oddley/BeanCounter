@@ -17,21 +17,36 @@ import {
   LitterDetail,
   NewLitter,
   FeedingSession,
-  EditFeeding,
-  Settings,
-  Invite,
-  ConflictResolution,
   ErrorBoundary,
-  Debug,
-  NotFound,
 } from '../routes'
 
-// Lazy-loaded so Recharts and its D3 dependencies land in a separate chunk.
-// The service worker precaches this chunk at install time, so there is no
-// network cost at navigation time — only a one-time JS parse the first visit
-// per session. Closes GitHub issue #5.
+// Non-critical routes lazy-loaded so their modules land in separate chunks,
+// reducing the initial JS parse cost for the hot paths above. The service
+// worker precaches all chunks at install time, so subsequent navigations
+// pay only a one-time parse cost per session — no network round-trip.
+// Closes GitHub issues #5 (Recharts / D3 split) and #27 (route splitting).
 const LitterGraph = lazy(() =>
   import('../routes/LitterGraph').then((m) => ({ default: m.LitterGraph })),
+)
+const EditFeeding = lazy(() =>
+  import('../routes/EditFeeding').then((m) => ({ default: m.EditFeeding })),
+)
+const Settings = lazy(() =>
+  import('../routes/Settings').then((m) => ({ default: m.Settings })),
+)
+const Invite = lazy(() =>
+  import('../routes/Invite').then((m) => ({ default: m.Invite })),
+)
+const ConflictResolution = lazy(() =>
+  import('../routes/ConflictResolution').then((m) => ({
+    default: m.ConflictResolution,
+  })),
+)
+const Debug = lazy(() =>
+  import('../routes/Debug').then((m) => ({ default: m.Debug })),
+)
+const NotFound = lazy(() =>
+  import('../routes/NotFound').then((m) => ({ default: m.NotFound })),
 )
 import { hasStoredConnection } from '../auth'
 import { attemptBootReconnect, isDirty, runSync } from '../sync'
@@ -78,7 +93,11 @@ const router = createBrowserRouter([
       { path: '/litters/:litterId/feed', element: <FeedingSession /> },
       {
         path: '/litters/:litterId/edit-feeding/:sessionId',
-        element: <EditFeeding />,
+        element: (
+          <Suspense fallback={null}>
+            <EditFeeding />
+          </Suspense>
+        ),
       },
       {
         path: '/litters/:id/graph',
@@ -88,11 +107,46 @@ const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      { path: '/settings', element: <Settings /> },
-      { path: '/invite', element: <Invite /> },
-      { path: '/conflicts', element: <ConflictResolution /> },
-      { path: '/debug', element: <Debug /> },
-      { path: '*', element: <NotFound /> },
+      {
+        path: '/settings',
+        element: (
+          <Suspense fallback={null}>
+            <Settings />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/invite',
+        element: (
+          <Suspense fallback={null}>
+            <Invite />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/conflicts',
+        element: (
+          <Suspense fallback={null}>
+            <ConflictResolution />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/debug',
+        element: (
+          <Suspense fallback={null}>
+            <Debug />
+          </Suspense>
+        ),
+      },
+      {
+        path: '*',
+        element: (
+          <Suspense fallback={null}>
+            <NotFound />
+          </Suspense>
+        ),
+      },
     ],
   },
 ])

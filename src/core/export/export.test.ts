@@ -19,7 +19,7 @@ const entries = [
 ]
 
 function rows(csv: string) {
-  return csv.split('\n')
+  return csv.split('\r\n')
 }
 
 describe('buildCsv', () => {

@@ -56,5 +56,5 @@ export function buildCsv(input: BuildCsvInput): string {
     return cols.join(',')
   })
 
-  return [gramsHeader, ...gramsRows, '', ouncesHeader, ...ouncesRows].join('\n')
+  return [gramsHeader, ...gramsRows, '', ouncesHeader, ...ouncesRows].join('\r\n')
 }

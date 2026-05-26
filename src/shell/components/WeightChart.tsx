@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -147,6 +148,23 @@ export function WeightChart({
   onTimeChange,
 }: WeightChartProps) {
   const now = useMemo(() => Date.now(), [])
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  // Persistent dots at the selected time so the selection remains visible
+  // after the user lifts their finger (Recharts' activeDot disappears then).
+  const selectedDots = useMemo(() => {
+    if (selectedTime == null || !Number.isFinite(selectedTime)) return []
+    return seriesList
+      .filter((s) => s.points.length > 0)
+      .flatMap((s) => {
+        const pt = (s.points as Array<{ time: number; grams: number }>).find(
+          (p) => p.time === selectedTime,
+        )
+        return pt !== undefined
+          ? [{ kittenId: s.kittenId, color: kittenColor(s.order), y: pt.grams }]
+          : []
+      })
+  }, [seriesList, selectedTime])
 
   const hasAnyPoints = seriesList.some((s) => s.points.length > 0)
 
@@ -158,8 +176,32 @@ export function WeightChart({
     )
   }
 
+  // Fires on every touchstart so a selection is established even when the
+  // drag begins over a chart margin or the background grid — areas where
+  // Recharts' tooltip engine never activates. Converts the raw touch X to
+  // an x-axis time via the known chart geometry constants and delegates to
+  // the same handleTimeChange the tooltip uses. Closes GitHub issue #25.
+  const handleWrapTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (onTimeChange === undefined) return
+    const touch = e.touches[0]
+    if (touch === undefined) return
+    const rect = wrapRef.current?.getBoundingClientRect()
+    if (rect === undefined) return
+    // Layout constants matching LineChart margin + YAxis width below:
+    //   margin.left (4) + YAxis.width (48) = 52 px
+    //   margin.right = 16 px
+    const PLOT_LEFT_PX = 52
+    const PLOT_RIGHT_MARGIN_PX = 16
+    const plotWidth = rect.width - PLOT_LEFT_PX - PLOT_RIGHT_MARGIN_PX
+    if (plotWidth <= 0) return
+    const touchX = touch.clientX - rect.left - PLOT_LEFT_PX
+    const ratio = Math.max(0, Math.min(1, touchX / plotWidth))
+    const time = xRange.min + ratio * (xRange.max - xRange.min)
+    onTimeChange(time)
+  }
+
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} ref={wrapRef} onTouchStart={handleWrapTouchStart}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart margin={{ top: 8, right: 16, bottom: 8, left: 4 }}>
           <CartesianGrid stroke="#2a2a2a" strokeDasharray="3 3" />
@@ -199,6 +241,21 @@ export function WeightChart({
                 ifOverflow="extendDomain"
               />
             )}
+          {selectedTime !== undefined &&
+            selectedTime !== null &&
+            Number.isFinite(selectedTime) &&
+            selectedDots.map((dot) => (
+              <ReferenceDot
+                key={dot.kittenId}
+                x={selectedTime}
+                y={dot.y}
+                r={5}
+                fill={dot.color}
+                stroke="#161616"
+                strokeWidth={2}
+                ifOverflow="extendDomain"
+              />
+            ))}
           {seriesList
             .filter((s) => s.points.length > 0)
             .map((s) => (

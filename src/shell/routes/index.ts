@@ -3,13 +3,19 @@ export { LitterList } from './LitterList'
 export { LitterDetail } from './LitterDetail'
 export { NewLitter } from './NewLitter'
 export { FeedingSession } from './FeedingSession'
-export { EditFeeding } from './EditFeeding'
-// LitterGraph is intentionally NOT exported from this barrel.
-// It is lazy-imported directly in App.tsx to keep Recharts in a separate chunk.
-// Do not add it back here.
-export { Settings } from './Settings'
-export { Invite } from './Invite'
-export { ConflictResolution } from './ConflictResolution'
+// ErrorBoundary must be eager: it is the router's errorElement and must be
+// available synchronously if any lazy chunk fails to load.
 export { ErrorBoundary } from './ErrorBoundary'
-export { Debug } from './Debug'
-export { NotFound } from './NotFound'
+
+// The routes below are intentionally NOT exported from this barrel.
+// They are lazy-imported directly in App.tsx so they land in separate
+// chunks, reducing the initial-parse cost for the hot paths above.
+// Do not add them back here. Closes GitHub issue #27.
+//
+// EditFeeding  → ../routes/EditFeeding
+// LitterGraph  → ../routes/LitterGraph   (also keeps Recharts / D3 split, closes #5)
+// Settings     → ../routes/Settings
+// Invite       → ../routes/Invite
+// ConflictResolution → ../routes/ConflictResolution
+// Debug        → ../routes/Debug
+// NotFound     → ../routes/NotFound

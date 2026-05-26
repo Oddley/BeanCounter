@@ -6,12 +6,18 @@ export interface KittenLegendProps {
   readonly seriesList: readonly KittenSeries[]
   readonly focusedKittenId: string | null
   readonly onToggleFocus: (kittenId: string) => void
+  // When a feeding is selected on the chart, shows each kitten's weight
+  // for that session next to its name so the user can read values after
+  // lifting their finger (Recharts' tooltip disappears on touch-end).
+  // Closes GitHub issue #26.
+  readonly selectedWeights?: ReadonlyMap<string, number>
 }
 
 export function KittenLegend({
   seriesList,
   focusedKittenId,
   onToggleFocus,
+  selectedWeights,
 }: KittenLegendProps) {
   if (seriesList.length === 0) return null
 
@@ -41,6 +47,12 @@ export function KittenLegend({
                 aria-hidden
               />
               <span className={styles.name}>{s.displayName}</span>
+              {selectedWeights !== undefined &&
+                selectedWeights.has(s.kittenId) && (
+                  <span className={styles.weight}>
+                    {Math.round(selectedWeights.get(s.kittenId) as number)}g
+                  </span>
+                )}
               {s.points.length === 0 && (
                 <span className={styles.noData}>no data</span>
               )}
