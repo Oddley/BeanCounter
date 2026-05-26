@@ -1,21 +1,17 @@
-import { useRouteError, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { AppBar, Button } from '../components'
-import styles from './ErrorBoundary.module.css'
+import { resetUnhandledError } from './globalErrorState'
+// Reuse the same CSS as the render-time ErrorBoundary — identical visual.
+import styles from '../routes/ErrorBoundary.module.css'
 
-// Mounted as `errorElement` on the root layout route. Catches errors thrown
-// during render of a child route — React's default crash page is replaced
-// with a friendlier UI plus a one-tap "Report this bug" affordance.
+// Crash UI for errors that escape React's render lifecycle (event handlers,
+// async functions, unhandled promise rejections). Rendered imperatively by
+// SyncOnNavLayout when globalErrorState has a pending error.
 //
-// Scope: render-time errors only. Async / event-handler errors are handled
-// by shell/app/AsyncCrashPage.tsx via the globalErrorState singleton, wired
-// in App.tsx's SyncOnNavLayout. Closes GitHub issues #17 and #18.
+// The render-time counterpart is src/shell/routes/ErrorBoundary.tsx, which
+// uses useRouteError() and is mounted as the router's errorElement.
 
-interface CrashFields {
-  readonly message: string
-  readonly stack: string
-}
-
-function describeError(err: unknown): CrashFields {
+function describeError(err: unknown): { message: string; stack: string } {
   if (err instanceof Error) {
     return { message: err.message, stack: err.stack ?? '(no stack)' }
   }
@@ -28,12 +24,8 @@ function buildCrashReportUrl(err: unknown): string {
   const here = typeof window !== 'undefined' ? window.location.href : 'unknown'
   const params = new URLSearchParams({
     template: 'bug_report.yml',
-    // GitHub trims long titles; keep this short and meaningful.
     title: `[Crash] ${message.slice(0, 80)}`,
-    'what-happened': `The app crashed with this error:\n\n${message.slice(
-      0,
-      400,
-    )}`,
+    'what-happened': `The app crashed with this error:\n\n${message.slice(0, 400)}`,
     device: ua.slice(0, 200),
     extras: [
       `URL: ${here}`,
@@ -46,17 +38,20 @@ function buildCrashReportUrl(err: unknown): string {
   return `https://github.com/Oddley/BeanCounter/issues/new?${params.toString()}`
 }
 
-export function ErrorBoundary() {
-  const err = useRouteError()
+interface AsyncCrashPageProps {
+  readonly error: unknown
+}
+
+export function AsyncCrashPage({ error }: AsyncCrashPageProps) {
   const navigate = useNavigate()
-  const { message, stack } = describeError(err)
+  const { message, stack } = describeError(error)
 
   const onReport = () => {
-    const url = buildCrashReportUrl(err)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    window.open(buildCrashReportUrl(error), '_blank', 'noopener,noreferrer')
   }
 
   const onGoHome = () => {
+    resetUnhandledError()
     void navigate('/', { replace: true })
   }
 
@@ -87,8 +82,8 @@ export function ErrorBoundary() {
 
         <p className={styles.muted}>
           The bug report will open in a new tab with the error details
-          pre-filled. You can add anything you remember about what you
-          were doing when this happened.
+          pre-filled. You can add anything you remember about what you were
+          doing when this happened.
         </p>
       </main>
     </>

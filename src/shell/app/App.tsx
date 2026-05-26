@@ -6,6 +6,11 @@ import {
   Outlet,
 } from 'react-router-dom'
 import { NavDepthProvider } from './NavDepthProvider'
+import { AsyncCrashPage } from './AsyncCrashPage'
+import {
+  installGlobalErrorListeners,
+  useUnhandledError,
+} from './globalErrorState'
 import {
   Home,
   LitterList,
@@ -38,11 +43,18 @@ import { installPwaRegistration } from '../pwa'
 // treated as a save point.
 function SyncOnNavLayout() {
   const location = useLocation()
+  const unhandledError = useUnhandledError()
+
   useEffect(() => {
     if (isDirty() && hasStoredConnection()) {
       void runSync()
     }
   }, [location.pathname])
+
+  if (unhandledError !== null) {
+    return <AsyncCrashPage error={unhandledError} />
+  }
+
   return (
     <NavDepthProvider>
       <Outlet />
@@ -87,6 +99,7 @@ const router = createBrowserRouter([
 
 export function App() {
   useEffect(() => {
+    installGlobalErrorListeners()
     attemptBootReconnect()
     installPwaRegistration()
   }, [])
