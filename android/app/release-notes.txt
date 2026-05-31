@@ -1,0 +1,4 @@
+Initial release — Bean Counter Sync sidecar.
+
+Sign in with Google once, then close the app. It will keep syncing
+Bean Counter with Google Drive silently in the background.

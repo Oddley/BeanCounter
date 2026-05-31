@@ -1,0 +1,16 @@
+# Gradle build outputs
+.gradle/
+build/
+app/build/
+
+# Android Studio
+.idea/
+*.iml
+local.properties
+
+# Firebase — contains project IDs, do not commit
+app/google-services.json
+
+# Signing keys — never commit
+*.keystore
+*.jks

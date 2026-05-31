@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.appdistribution)
 }
 
 android {
@@ -16,6 +18,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            firebaseAppDistribution {
+                // Tester groups managed in Firebase Console → App Distribution → Testers & Groups.
+                // Or list emails directly: testers = "someone@example.com"
+                groups = "testers"
+                releaseNotesFile = "release-notes.txt"
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
