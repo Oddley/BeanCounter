@@ -26,11 +26,31 @@ src/
   shell/          ← React components, hooks, Dexie, API calls
     [feature]/
       CLAUDE.md   ← feature entry points and side effects
+android/          ← Android sidecar app (Kotlin); see android/CLAUDE.md
+  app/src/main/kotlin/dev/oddley/beancounter/sync/
+  distribute.ps1  ← build + upload to Firebase App Distribution
+  testers.txt     ← one email per line; distribute.ps1 reads this as default
 docs/
   adr/            ← one file per architectural decision
 public/
   robots.txt      ← allow all crawlers (User-agent: * / Disallow:)
 ```
+
+## Android Sidecar
+
+`android/` is a standalone Kotlin + Gradle project. It runs a foreground service on the device that holds native Google Drive credentials (via `play-services-auth`) and exposes them to the PWA via a local HTTP server on `localhost:7734`. See `android/CLAUDE.md` for the full architecture.
+
+**Build and distribute:**
+```powershell
+cd android
+.\distribute.ps1                          # sends to everyone in testers.txt
+.\distribute.ps1 -Testers "a@b.com"      # override recipients
+.\distribute.ps1 -Notes "Fixed the thing" # override release notes
+```
+
+**Google Cloud requirement:** an Android OAuth 2.0 client ID must exist in the same GCP project as the web client ID. Package name: `dev.oddley.beancounter.sync`. SHA-1: run `.\gradlew signingReport`.
+
+**PWA integration:** `src/shell/sync/sidecar.ts` exposes `isSidecarAvailable()`, `sidecarInspect()`, `sidecarWrite()`. The sync orchestrator calls these instead of the Drive API when the sidecar is detected. The `/setup-sync` route guides new users through installation.
 
 ## Route / Barrel Split (do not undo)
 
