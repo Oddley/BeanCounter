@@ -20,8 +20,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Fall back to testers.txt if no explicit target was given
 if (-not $Testers -and -not $Groups) {
-    Write-Error "Provide -Testers `"email@example.com`" or -Groups `"group-name`""
+    $testersFile = Join-Path $PSScriptRoot "testers.txt"
+    if (Test-Path $testersFile) {
+        $Testers = (Get-Content $testersFile | Where-Object { $_ -match '\S' }) -join ","
+    }
+}
+if (-not $Testers -and -not $Groups) {
+    Write-Error "Provide -Testers `"email@example.com`" or -Groups `"group-name`", or create android\testers.txt with one email per line"
     exit 1
 }
 
