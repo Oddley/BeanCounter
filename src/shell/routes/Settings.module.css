@@ -129,6 +129,12 @@
   margin-top: var(--space-3);
 }
 
+.sidecarBadge {
+  color: #4ade80;
+  font-size: 0.875rem;
+  margin-top: var(--space-2);
+}
+
 .connectedButtons {
   display: flex;
   flex-direction: column;

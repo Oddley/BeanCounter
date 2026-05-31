@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple sync arrows icon for the launcher -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="24" android:translateY="24">
+        <!-- Sync circle arrows, white on transparent -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M30,10 A22,22 0 1 1 10,30 L10,22 L4,30 L16,30 L10,22 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M30,50 A22,22 0 1 1 50,30 L50,38 L56,30 L44,30 L50,38 Z" />
+    </group>
+</vector>

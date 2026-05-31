@@ -48,6 +48,9 @@ const Debug = lazy(() =>
 const NotFound = lazy(() =>
   import('../routes/NotFound').then((m) => ({ default: m.NotFound })),
 )
+const SidecarSetup = lazy(() =>
+  import('../routes/SidecarSetup').then((m) => ({ default: m.SidecarSetup })),
+)
 import { hasStoredConnection } from '../auth'
 import { attemptBootReconnect, isDirty, runSync } from '../sync'
 import { installPwaRegistration } from '../pwa'
@@ -136,6 +139,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={null}>
             <Debug />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/setup-sync',
+        element: (
+          <Suspense fallback={null}>
+            <SidecarSetup />
           </Suspense>
         ),
       },

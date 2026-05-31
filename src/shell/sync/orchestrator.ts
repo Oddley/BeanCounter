@@ -27,6 +27,12 @@ import {
 } from './first-connect'
 import { setSyncState, getSyncState } from './state'
 import { clearDirty, getDirtySince, setSuspended } from './dirty'
+import {
+  isSidecarAvailable,
+  pushConnectionToSidecar,
+  sidecarInspect,
+  sidecarWrite,
+} from './sidecar'
 
 const ACTIVE_FILE_NAME = 'active.json'
 
@@ -134,28 +140,41 @@ async function doRunSync(
   // detect that at the end to stay in 'dirty' rather than 'synced'.
   const dirtyAtStart = getDirtySince()
 
-  let token = await getValidToken()
-  if (token === null && options.allowInteractive === true) {
-    try {
-      const fresh = await requestToken()
-      token = fresh.accessToken
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Re-auth failed'
+  // Check for the Android sidecar service on localhost:7734. When it's
+  // present, all Drive I/O goes through it — no browser OAuth popup needed,
+  // since the sidecar holds persistent credentials via play-services-auth.
+  const useSidecar = await isSidecarAvailable()
+  if (useSidecar) {
+    // Keep the sidecar informed of the current folder/file so it can
+    // resolve paths without the PWA re-sending them every request.
+    await pushConnectionToSidecar()
+  }
+
+  let token: string | null = null
+  if (!useSidecar) {
+    token = await getValidToken()
+    if (token === null && options.allowInteractive === true) {
+      try {
+        const fresh = await requestToken()
+        token = fresh.accessToken
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Re-auth failed'
+        setSyncState({
+          status: 'error',
+          errorMessage: `Sign-in cancelled or blocked: ${message}`,
+        })
+        return { kind: 'needs-auth' }
+      }
+    }
+    if (token === null) {
       setSyncState({
         status: 'error',
-        errorMessage: `Sign-in cancelled or blocked: ${message}`,
+        errorMessage:
+          'Drive session expired — open Settings and tap "Sync now" to refresh',
       })
       return { kind: 'needs-auth' }
     }
-  }
-  if (token === null) {
-    setSyncState({
-      status: 'error',
-      errorMessage:
-        'Drive session expired — open Settings and tap "Sync now" to refresh',
-    })
-    return { kind: 'needs-auth' }
   }
 
   // Retry loop for optimistic concurrency: if Drive returns 412 (another
@@ -167,7 +186,9 @@ async function doRunSync(
 
   try {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const inspection = await inspectDrive(token, folderId, knownFileId)
+      const inspection = useSidecar
+        ? await sidecarInspect(folderId, knownFileId)
+        : await inspectDrive(token!, folderId, knownFileId)
       const localSnapshot = await snapshotLocal()
 
       let merged: ActiveFileSnapshot
@@ -241,13 +262,15 @@ async function doRunSync(
       }
 
       try {
-        const pushedFileId = await pushSnapshot(
-          token,
-          folderId,
-          merged,
-          existingFileId,
-          etag,
-        )
+        const pushedFileId = useSidecar
+          ? await sidecarWrite({
+              folderId,
+              content: snapshotToJson(merged),
+              ...(existingFileId !== undefined ? { existingFileId } : {}),
+              fileName: ACTIVE_FILE_NAME,
+              ...(etag !== null ? { ifMatch: etag } : {}),
+            })
+          : await pushSnapshot(token!, folderId, merged, existingFileId, etag)
         // Cache the file id so subsequent syncs use the fast direct-fetch
         // path in inspectDrive (avoids the folder-search query, which fails
         // for users whose drive.file scope only covers the file — e.g.,

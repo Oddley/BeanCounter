@@ -17,5 +17,6 @@ export { ErrorBoundary } from './ErrorBoundary'
 // Settings     → ../routes/Settings
 // Invite       → ../routes/Invite
 // ConflictResolution → ../routes/ConflictResolution
+// SidecarSetup → ../routes/SidecarSetup
 // Debug        → ../routes/Debug
 // NotFound     → ../routes/NotFound

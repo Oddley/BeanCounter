@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AppBar, Button } from '../components'
 import {
   isAuthConfigured,
   isPickerConfigured,
-  requestToken,
-  pickFolder,
-  setStoredFolder,
   clearStoredFolder,
   getStoredFolderId,
   getStoredFolderName,
@@ -15,13 +12,12 @@ import { DriveError } from '../drive'
 import {
   setSyncState,
   useSyncState,
-  inspectDrive,
   pushLocalToActive,
   pullActiveToLocal,
-  hasAnyLocalData,
   runSync,
   type InspectionResult,
 } from '../sync'
+import { isSidecarAvailable } from '../sync/sidecar'
 import { buildInviteUrl } from '../../core/invite'
 import { usePwaStatus, applyPendingUpdate } from '../pwa'
 import styles from './Settings.module.css'
@@ -70,15 +66,22 @@ type Step =
   | { kind: 'error'; message: string }
 
 export function Settings() {
+  const navigate = useNavigate()
   const syncState = useSyncState()
   const pwaStatus = usePwaStatus()
   const [step, setStep] = useState<Step>({ kind: 'idle' })
   const [inviteNotice, setInviteNotice] = useState<InviteNotice>({
     kind: 'idle',
   })
+  const [sidecarActive, setSidecarActive] = useState(false)
   const authConfigured = isAuthConfigured()
   const pickerConfigured = isPickerConfigured()
   const fullyConfigured = authConfigured && pickerConfigured
+
+  // Check for Android sidecar on mount so the badge renders immediately.
+  useEffect(() => {
+    void isSidecarAvailable().then(setSidecarActive)
+  }, [])
 
   // On mount: if a folder is already stored, land in the connected state.
   useEffect(() => {
@@ -102,60 +105,10 @@ export function Settings() {
     setStep({ kind: 'error', message })
   }
 
-  // Shared post-folder flow: given a token + folder, inspect Drive and
-  // branch into push / silent-pull / warn-then-pull.
-  const inspectAndBranch = async (
-    accessToken: string,
-    folderId: string,
-    folderName: string,
-  ) => {
-    setStep({ kind: 'inspecting', accessToken, folderId, folderName })
-    const inspection = await inspectDrive(accessToken, folderId)
-    if (inspection.kind === 'empty') {
-      setStep({ kind: 'ready-push', accessToken, folderId, folderName })
-    } else if (inspection.kind === 'exists') {
-      const localHasData = await hasAnyLocalData()
-      if (!localHasData) {
-        setStep({ kind: 'pulling', folderName })
-        await pullActiveToLocal(inspection.file)
-        setSyncState({ status: 'synced', errorMessage: '' })
-        setStep({ kind: 'synced', mode: 'pulled', folderName })
-      } else {
-        setStep({
-          kind: 'confirm-pull',
-          accessToken,
-          folderId,
-          folderName,
-          inspection,
-        })
-      }
-    } else {
-      setSyncState({ status: 'error', errorMessage: inspection.error })
-      setStep({
-        kind: 'error',
-        message: `Drive's active.json is unreadable: ${inspection.error}`,
-      })
-    }
-  }
-
-  // Fresh connect: pick a folder via the Picker, then inspect+branch.
-  const handleFreshConnect = async () => {
-    setStep({ kind: 'connecting' })
-    setSyncState({ status: 'syncing', errorMessage: '' })
-    try {
-      const token = await requestToken()
-      setStep({ kind: 'picking', accessToken: token.accessToken })
-      const folder = await pickFolder(token.accessToken)
-      if (folder === null) {
-        setStep({ kind: 'disconnected' })
-        setSyncState({ status: 'offline', errorMessage: '' })
-        return
-      }
-      setStoredFolder(folder.id, folder.name)
-      await inspectAndBranch(token.accessToken, folder.id, folder.name)
-    } catch (err) {
-      handleError(err)
-    }
+  // Fresh connect: navigate to the guided setup wizard which handles both
+  // the Android sidecar path and the browser-only OAuth+Picker path.
+  const handleFreshConnect = () => {
+    void navigate('/setup-sync')
   }
 
   const handlePushLocal = async () => {
@@ -458,6 +411,12 @@ export function Settings() {
                   <p>
                     Connected to <strong>{step.folderName}</strong>.
                   </p>
+                  {sidecarActive && (
+                    <p className={styles.sidecarBadge}>
+                      ✓ Android sync active — Drive credentials managed by the
+                      Bean Counter Sync app. No manual sync needed.
+                    </p>
+                  )}
                   {syncState.status === 'dirty' && (
                     <p className={styles.dirtyBanner}>
                       ● You have unpublished local changes. They&apos;ll
