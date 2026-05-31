@@ -12,18 +12,22 @@ import { type InspectionResult } from './first-connect'
 // ── Config ───────────────────────────────────────────────────────────────────
 
 const SIDECAR_BASE = 'http://localhost:7734'
-// Short timeout: if the service isn't running we want to know fast and fall
-// back to the browser OAuth path without making the user wait.
-const TIMEOUT_MS = 1500
+// Short timeout for liveness probes (/ping) — fail fast so we can fall back
+// to browser OAuth without making the user wait.
+const PING_TIMEOUT_MS = 1500
+// Generous timeout for Drive operations (/inspect, /write) — these make real
+// network calls to Google's servers which can take 3–10 s on a mobile connection.
+const DRIVE_TIMEOUT_MS = 30_000
 
 // ── Internal fetch helper ─────────────────────────────────────────────────────
 
 async function sidecarFetch(
   path: string,
   init?: RequestInit,
+  timeoutMs = DRIVE_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     return await fetch(`${SIDECAR_BASE}${path}`, {
       ...init,
@@ -43,7 +47,7 @@ async function sidecarFetch(
  */
 export async function isSidecarAvailable(): Promise<boolean> {
   try {
-    const res = await sidecarFetch('/ping')
+    const res = await sidecarFetch('/ping', undefined, PING_TIMEOUT_MS)
     return res.ok
   } catch {
     return false
