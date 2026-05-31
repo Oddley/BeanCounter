@@ -106,7 +106,10 @@ export async function sidecarInspect(
   if (knownFileId !== undefined) params.set('fileId', knownFileId)
 
   const res = await sidecarFetch(`/inspect?${params.toString()}`)
-  if (!res.ok) throw new Error(`Sidecar inspect failed: ${res.status}`)
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`Sidecar inspect failed: ${res.status} — ${detail}`)
+  }
 
   const data = (await res.json()) as {
     kind: 'empty' | 'exists' | 'unreadable'
@@ -174,7 +177,10 @@ export async function sidecarWrite(options: {
     throw new DriveError('Precondition failed (ETag mismatch via sidecar)', 412)
   }
 
-  if (!res.ok) throw new Error(`Sidecar write failed: ${res.status}`)
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`Sidecar write failed: ${res.status} — ${detail}`)
+  }
   const data = (await res.json()) as { fileId: string }
   return data.fileId
 }

@@ -136,11 +136,12 @@ class LocalHttpServer(
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun readBody(session: IHTTPSession): String {
-        val len = session.headers["content-length"]?.toIntOrNull() ?: 0
-        if (len == 0) return "{}"
-        val buf = ByteArray(len)
-        session.inputStream.read(buf, 0, len)
-        return String(buf, Charsets.UTF_8)
+        // NanoHTTPD's parseBody() handles large payloads correctly — a raw
+        // InputStream.read() call only guarantees reading *some* bytes, not all,
+        // and silently truncates large active.json bodies, producing broken JSON.
+        val files = HashMap<String, String>()
+        session.parseBody(files)
+        return files["postData"] ?: "{}"
     }
 
     private fun jsonOk(body: String): Response {
