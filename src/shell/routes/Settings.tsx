@@ -78,10 +78,16 @@ export function Settings() {
   const pickerConfigured = isPickerConfigured()
   const fullyConfigured = authConfigured && pickerConfigured
 
-  // Check for Android sidecar on mount so the badge renders immediately.
+  // Check for the Android sidecar only once Drive is connected.
+  // Probing localhost triggers Chrome's "Local Network Access" permission
+  // dialog on the first call — firing it before the user has configured
+  // anything would be confusing. step.kind reaches 'connected' only after
+  // getStoredFolderName() returns a value, so this is already gated on a
+  // meaningful context.
   useEffect(() => {
+    if (step.kind !== 'connected') return
     void isSidecarAvailable().then(setSidecarActive)
-  }, [])
+  }, [step.kind])
 
   // On mount: if a folder is already stored, land in the connected state.
   useEffect(() => {
