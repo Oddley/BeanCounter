@@ -5,19 +5,27 @@
 #   firebase login
 #
 # Usage:
-#   .\distribute.ps1
-#   .\distribute.ps1 -Notes "Fixed the thing"
-#   .\distribute.ps1 -Groups "testers"   # override tester group
+#   .\distribute.ps1 -Testers "you@gmail.com"
+#   .\distribute.ps1 -Testers "you@gmail.com" -Notes "Fixed the thing"
+#   .\distribute.ps1 -Groups "testers"   # if you've set up a group in Firebase Console
 
 param(
     [string]$Notes = "",
-    [string]$Groups = "testers"
+    # Direct email(s), comma-separated. Simplest — no Firebase Console setup needed.
+    [string]$Testers = "",
+    # Named group from Firebase Console → App Distribution → Testers & Groups.
+    [string]$Groups = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# ── Read Firebase App ID from google-services.json ────────────────────────────
+if (-not $Testers -and -not $Groups) {
+    Write-Error "Provide -Testers `"email@example.com`" or -Groups `"group-name`""
+    exit 1
+}
+
+# ── Read Firebase App ID from google-services.json ───────────────────────────
 $gsPath = Join-Path $PSScriptRoot "app\google-services.json"
 if (-not (Test-Path $gsPath)) {
     Write-Error "app\google-services.json not found. Download it from Firebase Console and place it at android\app\google-services.json"
@@ -35,7 +43,7 @@ Write-Host "Firebase App ID: $appId"
 if (-not $Notes) {
     $notesPath = Join-Path $PSScriptRoot "app\release-notes.txt"
     if (Test-Path $notesPath) {
-        $Notes = Get-Content $notesPath -Raw
+        $Notes = (Get-Content $notesPath -Raw).Trim()
     } else {
         $Notes = "Debug build"
     }
@@ -49,11 +57,17 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Build failed"; exit 1 }
 
 # ── Upload ────────────────────────────────────────────────────────────────────
 $apk = Join-Path $PSScriptRoot "app\build\outputs\apk\debug\app-debug.apk"
-Write-Host "`nUploading to Firebase App Distribution (group: $Groups)..."
-firebase appdistribution:distribute $apk `
-    --app $appId `
-    --groups $Groups `
-    --release-notes $Notes
+$target = if ($Testers) { "testers: $Testers" } else { "group: $Groups" }
+Write-Host "`nUploading to Firebase App Distribution ($target)..."
 
+$firebaseArgs = @(
+    "appdistribution:distribute", $apk,
+    "--app", $appId,
+    "--release-notes", $Notes
+)
+if ($Testers) { $firebaseArgs += @("--testers", $Testers) }
+if ($Groups)  { $firebaseArgs += @("--groups",  $Groups)  }
+
+firebase @firebaseArgs
 if ($LASTEXITCODE -ne 0) { Write-Error "Upload failed"; exit 1 }
-Write-Host "`nDone! Testers in '$Groups' will receive an email with the install link."
+Write-Host "`nDone! An install link has been sent to $target"
