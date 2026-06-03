@@ -44,9 +44,13 @@ class SyncForegroundService : Service() {
         ensureChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
         if (server == null) {
-            val tokenManager = DriveTokenManager(this)
-            server = LocalHttpServer(this, DriveApiClient(tokenManager), tokenManager).apply {
-                start()
+            try {
+                val tokenManager = DriveTokenManager(this)
+                server = LocalHttpServer(this, DriveApiClient(tokenManager), tokenManager).apply {
+                    start()
+                }
+            } catch (e: Exception) {
+                stopSelf()
             }
         }
         return START_STICKY
