@@ -29,6 +29,7 @@ import { setSyncState, getSyncState } from './state'
 import { clearDirty, getDirtySince, setSuspended } from './dirty'
 import {
   isSidecarAvailable,
+  getSidecarPreferred,
   pushConnectionToSidecar,
   sidecarInspect,
   sidecarWrite,
@@ -148,6 +149,14 @@ async function doRunSync(
     // Keep the sidecar informed of the current folder/file so it can
     // resolve paths without the PWA re-sending them every request.
     await pushConnectionToSidecar()
+  }
+
+  if (!useSidecar && getSidecarPreferred()) {
+    setSyncState({
+      status: 'error',
+      errorMessage: 'Open the BeanCounter Sync app to continue syncing',
+    })
+    return { kind: 'error', message: 'Open the BeanCounter Sync app to continue syncing' }
   }
 
   let token: string | null = null

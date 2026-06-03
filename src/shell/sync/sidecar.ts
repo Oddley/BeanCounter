@@ -9,6 +9,19 @@ import { parseActiveFile } from '../../core/active-file'
 import { DriveError } from '../drive'
 import { type InspectionResult } from './first-connect'
 
+// ── Sidecar mode preference ───────────────────────────────────────────────────
+
+const SIDECAR_MODE_KEY = 'sync:sidecarMode'
+
+export function getSidecarPreferred(): boolean {
+  return localStorage.getItem(SIDECAR_MODE_KEY) === 'true'
+}
+
+export function setSidecarPreferred(preferred: boolean): void {
+  if (preferred) localStorage.setItem(SIDECAR_MODE_KEY, 'true')
+  else localStorage.removeItem(SIDECAR_MODE_KEY)
+}
+
 // ── Config ───────────────────────────────────────────────────────────────────
 
 const SIDECAR_BASE = 'http://localhost:7734'
@@ -85,6 +98,7 @@ export async function getSidecarConnection(): Promise<{
 export async function pushConnectionToSidecar(): Promise<void> {
   const folderId = getStoredFolderId()
   if (folderId === null) return
+  setSidecarPreferred(true)
   const fileId = getStoredFileId()
   const folderName = getStoredFolderName()
   await sidecarFetch('/connection', {

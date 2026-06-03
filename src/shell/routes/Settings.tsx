@@ -17,7 +17,11 @@ import {
   runSync,
   type InspectionResult,
 } from '../sync'
-import { isSidecarAvailable } from '../sync/sidecar'
+import {
+  isSidecarAvailable,
+  getSidecarPreferred,
+  setSidecarPreferred,
+} from '../sync/sidecar'
 import { buildInviteUrl } from '../../core/invite'
 import { usePwaStatus, applyPendingUpdate } from '../pwa'
 import styles from './Settings.module.css'
@@ -74,6 +78,9 @@ export function Settings() {
     kind: 'idle',
   })
   const [sidecarActive, setSidecarActive] = useState(false)
+  const [sidecarPreferred, setSidecarPreferredState] = useState(
+    getSidecarPreferred,
+  )
   const authConfigured = isAuthConfigured()
   const pickerConfigured = isPickerConfigured()
   const fullyConfigured = authConfigured && pickerConfigured
@@ -421,6 +428,20 @@ export function Settings() {
                     <p className={styles.sidecarBadge}>
                       ✓ Android sync active — Drive credentials managed by the
                       Bean Counter Sync app. No manual sync needed.
+                    </p>
+                  )}
+                  {!sidecarActive && sidecarPreferred && (
+                    <p className={styles.sidecarOffline}>
+                      Android Sync app is not running.{' '}
+                      <button
+                        className={styles.inlineLink}
+                        onClick={() => {
+                          setSidecarPreferred(false)
+                          setSidecarPreferredState(false)
+                        }}
+                      >
+                        Switch to browser sync
+                      </button>
                     </p>
                   )}
                   {syncState.status === 'dirty' && (
