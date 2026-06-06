@@ -33,6 +33,7 @@ import {
   pushConnectionToSidecar,
   sidecarInspect,
   sidecarWrite,
+  tryWakeSidecar,
 } from './sidecar'
 
 const ACTIVE_FILE_NAME = 'active.json'
@@ -144,19 +145,31 @@ async function doRunSync(
   // Check for the Android sidecar service on localhost:7734. When it's
   // present, all Drive I/O goes through it — no browser OAuth popup needed,
   // since the sidecar holds persistent credentials via play-services-auth.
-  const useSidecar = await isSidecarAvailable()
+  let useSidecar = await isSidecarAvailable()
+
+  if (!useSidecar && getSidecarPreferred()) {
+    // Sidecar was previously configured but isn't responding. The OS may have
+    // killed it. Fire the wake URI so WakeActivity restarts the service, then
+    // retry the ping a few times to give it time to come back up.
+    tryWakeSidecar()
+    for (let i = 0; i < 3; i++) {
+      await new Promise<void>((r) => setTimeout(r, 1500))
+      useSidecar = await isSidecarAvailable()
+      if (useSidecar) break
+    }
+    if (!useSidecar) {
+      setSyncState({
+        status: 'error',
+        errorMessage: 'Open the BeanCounter Sync app to continue syncing',
+      })
+      return { kind: 'error', message: 'Open the BeanCounter Sync app to continue syncing' }
+    }
+  }
+
   if (useSidecar) {
     // Keep the sidecar informed of the current folder/file so it can
     // resolve paths without the PWA re-sending them every request.
     await pushConnectionToSidecar()
-  }
-
-  if (!useSidecar && getSidecarPreferred()) {
-    setSyncState({
-      status: 'error',
-      errorMessage: 'Open the BeanCounter Sync app to continue syncing',
-    })
-    return { kind: 'error', message: 'Open the BeanCounter Sync app to continue syncing' }
   }
 
   let token: string | null = null

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { AppBar, Button } from '../components'
 // Direct path imports — these bring in Recharts and must stay out of the
 // components barrel so the lazy-load split in App.tsx is effective.
@@ -42,13 +42,16 @@ function formatFeedingTime(millis: number, now: number): string {
 export function LitterGraph() {
   const navigate = useNavigate()
   const { id: litterId = '' } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const litter = useLitter(litterId)
   const activeKittens = useActiveKittens(litterId)
   const allSessions = useAllSessions()
   const allEntries = useAllWeightEntries()
 
   const [mode, setMode] = useState<GraphMode>('rough')
-  const [focusedKittenId, setFocusedKittenId] = useState<string | null>(null)
+  const [focusedKittenId, setFocusedKittenId] = useState<string | null>(
+    () => searchParams.get('kitten'),
+  )
   // Selected feeding session (for the Edit affordance). Cleared when the
   // graph mode changes (smooth points aren't 1:1 with sessions, so the
   // concept doesn't apply there). Tapping the same selection clears it.
@@ -244,18 +247,42 @@ export function LitterGraph() {
       <AppBar title={`${litter.name} — graph`} backTo={`/litters/${litterId}`} />
       <main className={styles.main}>
         <div className={styles.toolbar}>
-          <GraphModeToggle mode={mode} onChange={handleModeChange} />
-          {focusedKittenId !== null && (
-            <button
-              type="button"
-              className={styles.clearFocus}
-              onClick={() => {
-                setFocusedKittenId(null)
-                setSelectedSessionId(null)
-              }}
+          {mode === 'rough' && (
+            <Button
+              variant="secondary"
+              onClick={stepPrev}
+              disabled={!canStepPrev}
+              aria-label="Previous feeding"
+              className={styles.stepperButton}
             >
-              Show all
-            </button>
+              ‹
+            </Button>
+          )}
+          <div className={styles.toolbarCenter}>
+            <GraphModeToggle mode={mode} onChange={handleModeChange} />
+            {focusedKittenId !== null && (
+              <button
+                type="button"
+                className={styles.clearFocus}
+                onClick={() => {
+                  setFocusedKittenId(null)
+                  setSelectedSessionId(null)
+                }}
+              >
+                Show all
+              </button>
+            )}
+          </div>
+          {mode === 'rough' && (
+            <Button
+              variant="secondary"
+              onClick={stepNext}
+              disabled={!canStepNext}
+              aria-label="Next feeding"
+              className={styles.stepperButton}
+            >
+              ›
+            </Button>
           )}
         </div>
 

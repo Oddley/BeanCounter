@@ -31,6 +31,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Handles beancounter-sync://wake from the PWA to restart the service -->
+        <activity
+            android:name=".WakeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.BeanCounterSync">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="beancounter-sync" android:host="wake" />
+            </intent-filter>
+        </activity>
+
         <!-- Foreground service: runs the localhost HTTP server -->
         <service
             android:name=".SyncForegroundService"

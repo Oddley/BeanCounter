@@ -47,6 +47,12 @@ export function installGlobalErrorListeners(): void {
   window.addEventListener('error', (event) => {
     // ResizeObserver loop warnings are benign browser noise — ignore them.
     if (typeof event.message === 'string' && event.message.includes('ResizeObserver')) return
+    // "Script error." with no error object is a sanitised cross-origin error —
+    // typically from Google's GSI or Picker scripts running in iframes on iOS
+    // Firefox. There's no actionable stack trace, and treating it as a fatal
+    // crash just confuses the user. Ignore it and let the auth/sync error
+    // handlers surface a real message if the operation failed.
+    if (event.message === 'Script error.' && event.error == null) return
     setUnhandledError(event.error ?? new Error(event.message))
   })
 

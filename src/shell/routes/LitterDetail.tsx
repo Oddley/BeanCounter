@@ -348,7 +348,14 @@ export function LitterDetail() {
                     </div>
                   ) : (
                     <ListItem
-                      primary={k.displayName}
+                      primary={
+                        <Link
+                          to={`/litters/${litter.id}/graph?kitten=${k.id}`}
+                          className={styles.kittenLink}
+                        >
+                          {k.displayName}
+                        </Link>
+                      }
                       trailing={
                         <>
                           <Button

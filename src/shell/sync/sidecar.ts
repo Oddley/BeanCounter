@@ -204,6 +204,25 @@ export async function sidecarWrite(options: {
 }
 
 /**
+ * Attempts to wake the Android sidecar service via the `beancounter-sync://wake`
+ * custom URI scheme. On Android, Chrome intercepts this navigation and dispatches
+ * it to WakeActivity, which calls startForegroundService and immediately finishes —
+ * no visible UI flash. No-op on non-Android or when the app is not installed.
+ */
+export function tryWakeSidecar(): void {
+  try {
+    const a = document.createElement('a')
+    a.href = 'beancounter-sync://wake'
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } catch {
+    // Non-Android platforms will simply not handle the URI — safe to ignore.
+  }
+}
+
+/**
  * Adopts the sidecar's stored folder as the PWA's active connection.
  * Returns true if a folderId was available and was adopted, false if the
  * sidecar has no folder stored yet (user still needs to pick one).

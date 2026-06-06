@@ -5,8 +5,9 @@ import {
   requestToken,
   pickFolder,
   setStoredFolder,
+  clearStoredFolder,
 } from '../auth'
-import { setSyncState, runSync } from '../sync'
+import { setSyncState, runSync, inspectDrive } from '../sync'
 import {
   isSidecarAvailable,
   adoptSidecarConnection,
@@ -23,6 +24,7 @@ type Step =
   | { kind: 'android-waiting' }
   | { kind: 'android-syncing' }
   | { kind: 'browser-connecting' }
+  | { kind: 'confirm-or-join'; folderName: string }
   | { kind: 'done' }
   | { kind: 'error'; message: string }
 
@@ -111,6 +113,17 @@ export function SidecarSetup() {
         return
       }
       setStoredFolder(folder.id, folder.name)
+
+      // With drive.file scope, files created by OTHER users are invisible to
+      // listFiles — so inspectDrive always returns 'empty' even when another
+      // user's active.json is sitting right there. Before blindly creating a
+      // second file, ask the user whether they're starting fresh or joining.
+      const inspection = await inspectDrive(token.accessToken, folder.id)
+      if (inspection.kind === 'empty') {
+        setSyncState({ status: 'offline', errorMessage: '' })
+        setStep({ kind: 'confirm-or-join', folderName: folder.name })
+        return
+      }
       await firstSync()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Connection failed'
@@ -221,6 +234,34 @@ export function SidecarSetup() {
             <h2 className={styles.stepTitle}>Connecting…</h2>
             <p className={styles.stepBody}>Setting up your Drive connection.</p>
             <div className={styles.spinner} aria-label="Connecting" />
+          </>
+        )}
+
+        {step.kind === 'confirm-or-join' && (
+          <>
+            <h2 className={styles.stepTitle}>No data found in this folder</h2>
+            <p className={styles.stepBody}>
+              <strong>{step.folderName}</strong> appears empty to Bean Counter.
+              Are you starting a fresh sync here, or were you invited to join
+              someone else&apos;s existing household?
+            </p>
+            <p className={styles.hint}>
+              If you received an invite link, use that instead — it grants
+              access to the existing data file rather than creating a new one.
+            </p>
+            <Button onClick={() => void firstSync()}>
+              Start fresh here
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                clearStoredFolder()
+                setSyncState({ status: 'offline', errorMessage: '' })
+                setStep({ kind: 'choose' })
+              }}
+            >
+              I have an invite link — go back
+            </Button>
           </>
         )}
 
