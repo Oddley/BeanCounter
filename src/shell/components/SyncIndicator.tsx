@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useSyncState, type SyncStatus } from '../sync'
+import { useSyncState, useActiveBackendKind, type SyncStatus } from '../sync'
 import styles from './SyncIndicator.module.css'
 
 interface IndicatorDisplay {
@@ -11,19 +11,20 @@ interface IndicatorDisplay {
   readonly href: string
 }
 
-function displayFor(status: SyncStatus): IndicatorDisplay {
+function displayFor(status: SyncStatus, backendName: string): IndicatorDisplay {
+  const to = backendName !== '' ? ` to ${backendName}` : ''
   switch (status) {
     case 'offline':
       return {
         icon: '⚙',
-        label: 'Drive sync not configured — tap to set up',
+        label: 'Sync not configured — tap to set up',
         className: styles.offline ?? '',
         href: '/settings',
       }
     case 'syncing':
       return {
         icon: '⟳',
-        label: 'Syncing to Drive…',
+        label: `Syncing${to}…`,
         className: styles.syncing ?? '',
         href: '/settings',
       }
@@ -51,7 +52,7 @@ function displayFor(status: SyncStatus): IndicatorDisplay {
     case 'synced':
       return {
         icon: '✓',
-        label: 'Synced to Drive',
+        label: `Synced${to}`,
         className: styles.synced ?? '',
         href: '/settings',
       }
@@ -60,7 +61,13 @@ function displayFor(status: SyncStatus): IndicatorDisplay {
 
 export function SyncIndicator() {
   const state = useSyncState()
-  const display = displayFor(state.status)
+  const backendKind = useActiveBackendKind()
+  // Map kind to display name without importing the full backend instance.
+  const backendName =
+    backendKind === 'drive' ? 'Drive'
+    : backendKind === 'firebase' ? 'Firebase'
+    : ''
+  const display = displayFor(state.status, backendName)
   return (
     <Link
       to={display.href}

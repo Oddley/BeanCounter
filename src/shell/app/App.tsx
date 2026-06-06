@@ -48,11 +48,10 @@ const Debug = lazy(() =>
 const NotFound = lazy(() =>
   import('../routes/NotFound').then((m) => ({ default: m.NotFound })),
 )
-const SidecarSetup = lazy(() =>
-  import('../routes/SidecarSetup').then((m) => ({ default: m.SidecarSetup })),
+const SetupSync = lazy(() =>
+  import('../routes/SetupSync').then((m) => ({ default: m.SetupSync })),
 )
-import { hasStoredConnection } from '../auth'
-import { attemptBootReconnect, isDirty, runSync } from '../sync'
+import { attemptBootReconnect, isDirty, runSync, getActiveBackend } from '../sync'
 import { installPwaRegistration } from '../pwa'
 
 // Layout wrapper that fires a silent sync on every navigation if local
@@ -64,7 +63,7 @@ function SyncOnNavLayout() {
   const unhandledError = useUnhandledError()
 
   useEffect(() => {
-    if (isDirty() && hasStoredConnection()) {
+    if (isDirty() && getActiveBackend().isConfigured()) {
       void runSync()
     }
   }, [location.pathname])
@@ -146,7 +145,7 @@ const router = createBrowserRouter([
         path: '/setup-sync',
         element: (
           <Suspense fallback={null}>
-            <SidecarSetup />
+            <SetupSync />
           </Suspense>
         ),
       },

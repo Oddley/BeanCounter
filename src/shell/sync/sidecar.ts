@@ -7,7 +7,7 @@ import {
 } from '../auth'
 import { parseActiveFile } from '../../core/active-file'
 import { DriveError } from '../drive'
-import { type InspectionResult } from './first-connect'
+import { type DriveInspectionResult } from './first-connect'
 
 // ── Sidecar mode preference ───────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ export async function pushConnectionToSidecar(): Promise<void> {
 export async function sidecarInspect(
   folderId: string,
   knownFileId?: string,
-): Promise<InspectionResult> {
+): Promise<DriveInspectionResult> {
   const params = new URLSearchParams({ folderId })
   if (knownFileId !== undefined) params.set('fileId', knownFileId)
 
@@ -139,7 +139,7 @@ export async function sidecarInspect(
   }
 
   if (data.kind === 'empty') {
-    return { kind: 'empty', folderId: data.folderId }
+    return { kind: 'empty' }
   }
 
   if (data.kind === 'exists') {
@@ -147,8 +147,6 @@ export async function sidecarInspect(
     if (!parsed.ok) {
       return {
         kind: 'unreadable',
-        folderId: data.folderId,
-        fileId: data.fileId!,
         error: parsed.error,
       }
     }
@@ -157,15 +155,13 @@ export async function sidecarInspect(
       folderId: data.folderId,
       fileId: data.fileId!,
       file: parsed.file,
-      etag: data.etag ?? null,
+      concurrencyToken: data.etag ?? null,
     }
   }
 
   // 'unreadable'
   return {
     kind: 'unreadable',
-    folderId: data.folderId,
-    fileId: data.fileId ?? '',
     error: data.error ?? 'Unreadable',
   }
 }

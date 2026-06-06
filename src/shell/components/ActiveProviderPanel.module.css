@@ -1,0 +1,139 @@
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  margin: 0 0 var(--space-3);
+}
+
+.muted {
+  color: var(--color-fg-muted);
+  font-size: 0.9rem;
+}
+
+.statusLine {
+  margin-bottom: var(--space-2);
+}
+
+.error {
+  color: #f87171;
+  font-size: 0.9rem;
+  margin-bottom: var(--space-2);
+}
+
+.success {
+  color: #4ade80;
+  font-size: 0.9rem;
+}
+
+.offline { color: var(--color-fg-muted); }
+.syncing { color: #60a5fa; }
+.error-status { color: #f87171; }
+.conflicts { color: #fbbf24; }
+.dirty { color: #fb923c; }
+.synced { color: #4ade80; }
+
+.sidecarBadge {
+  color: #4ade80;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+}
+
+.sidecarOffline {
+  color: #fb923c;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+}
+
+.inlineLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #60a5fa;
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.dirtyBanner {
+  color: #fb923c;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+}
+
+.errorBanner {
+  color: #f87171;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+}
+
+.conflictsBanner {
+  color: #fbbf24;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+}
+
+.conflictsLink {
+  color: inherit;
+}
+
+.connectedButtons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.changeProvider {
+  font-size: 0.85rem;
+  color: var(--color-fg-muted);
+  text-align: center;
+  margin-top: var(--space-2);
+}
+
+.changeProviderLink {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.inviteSteps {
+  padding-left: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.inviteSteps li {
+  margin-bottom: var(--space-2);
+  font-size: 0.9rem;
+}
+
+.inviteButtons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.connectButton {
+  width: 100%;
+}
+
+.warningPanel {
+  background: #1f1200;
+  border: 1px solid #92400e;
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.warningButtons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.projectId {
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--color-fg-muted);
+}

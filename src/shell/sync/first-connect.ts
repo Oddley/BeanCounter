@@ -12,42 +12,39 @@ import {
 } from '../../core/active-file'
 import { NullAppSettings } from '../../core/settings'
 import { db, SETTINGS_SINGLETON_ID, wipeAllData } from '../db'
+import type {
+  InspectionEmpty,
+  InspectionUnreadable,
+} from './backend'
 
-const ACTIVE_FILE_NAME = 'active.json'
+// Re-export the generic base types so callers that only need kind/file/error
+// (e.g. Invite.tsx) can import them from the sync barrel without caring about
+// Drive-specific fields.
+export type { InspectionEmpty, InspectionUnreadable } from './backend'
 
-export interface InspectionEmpty {
-  readonly kind: 'empty'
-  readonly folderId: string
-}
-
-export interface InspectionExists {
+// Drive-specific inspection result: extends the generic shape with the folder
+// and file IDs that DriveBackend needs to perform a subsequent write, and
+// stores the HTTP ETag as the concurrencyToken.
+export interface DriveInspectionExists {
   readonly kind: 'exists'
   readonly folderId: string
   readonly fileId: string
   readonly file: ActiveFile
-  // ETag captured from the Drive response header. Forwarded to pushSnapshot
-  // as If-Match so a concurrent write from another device yields 412 instead
-  // of silent data loss. null if Drive omitted the header.
-  readonly etag: string | null
+  readonly concurrencyToken: string | null
 }
 
-export interface InspectionUnreadable {
-  readonly kind: 'unreadable'
-  readonly folderId: string
-  readonly fileId: string
-  readonly error: string
-}
-
-export type InspectionResult =
+export type DriveInspectionResult =
   | InspectionEmpty
-  | InspectionExists
+  | DriveInspectionExists
   | InspectionUnreadable
+
+const ACTIVE_FILE_NAME = 'active.json'
 
 export async function inspectDrive(
   token: string,
   folderId: string,
   knownFileId?: string,
-): Promise<InspectionResult> {
+): Promise<DriveInspectionResult> {
   // Fast path: if we already know the file id (recipient picked it via
   // Picker in the invite-accept flow, or we captured it after fresh-
   // connect's initial push), read it directly. Avoids the folder-search
@@ -63,27 +60,20 @@ export async function inspectDrive(
       const { content, etag } = await readFileContent(token, knownFileId)
       const parsed = parseActiveFile(content)
       if (!parsed.ok) {
-        return {
-          kind: 'unreadable',
-          folderId,
-          fileId: knownFileId,
-          error: parsed.error,
-        }
+        return { kind: 'unreadable', error: parsed.error }
       }
       return {
         kind: 'exists',
         folderId,
         fileId: knownFileId,
         file: parsed.file,
-        etag,
+        concurrencyToken: etag,
       }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Unknown fetch error'
       return {
         kind: 'unreadable',
-        folderId,
-        fileId: knownFileId,
         error: `Direct fetch of file ${knownFileId} failed: ${message}`,
       }
     }
@@ -95,24 +85,19 @@ export async function inspectDrive(
   )
   const first = matches[0]
   if (first === undefined) {
-    return { kind: 'empty', folderId }
+    return { kind: 'empty' }
   }
   const { content, etag } = await readFileContent(token, first.id)
   const parsed = parseActiveFile(content)
   if (!parsed.ok) {
-    return {
-      kind: 'unreadable',
-      folderId,
-      fileId: first.id,
-      error: parsed.error,
-    }
+    return { kind: 'unreadable', error: parsed.error }
   }
   return {
     kind: 'exists',
     folderId,
     fileId: first.id,
     file: parsed.file,
-    etag,
+    concurrencyToken: etag,
   }
 }
 

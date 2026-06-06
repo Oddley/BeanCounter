@@ -6,17 +6,28 @@ export {
   type SyncStatus,
 } from './state'
 
+// Generic inspection result types (backend-agnostic).
+export type {
+  InspectionResult,
+  InspectionEmpty,
+  InspectionExists,
+  InspectionUnreadable,
+  BackendKind,
+  SyncBackend,
+} from './backend'
+
 export {
-  inspectDrive,
-  snapshotLocal,
-  pushLocalToActive,
-  pullActiveToLocal,
-  hasAnyLocalData,
-  type InspectionResult,
-  type InspectionEmpty,
-  type InspectionExists,
-  type InspectionUnreadable,
-} from './first-connect'
+  ConcurrencyConflictError,
+  NeedsAuthError,
+} from './backend'
+
+// Registry: active backend selection.
+export {
+  getActiveBackend,
+  setActiveBackend,
+  useActiveBackendKind,
+  getStoredBackendKind,
+} from './backends/registry'
 
 export { attemptBootReconnect } from './boot'
 
@@ -33,3 +44,13 @@ export {
   isDirty,
   getDirtySince,
 } from './dirty'
+
+// Drive-specific helpers used by Invite.tsx and SetupSync drive path.
+// These are explicitly Drive-scoped; other backends don't expose equivalents.
+export {
+  inspectDrive,
+  snapshotLocal,
+  pushLocalToActive,
+  pullActiveToLocal,
+  hasAnyLocalData,
+} from './first-connect'
