@@ -7,8 +7,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 
 /**
  * Foreground service that keeps the [LocalHttpServer] running while the device is on.
@@ -42,7 +44,15 @@ class SyncForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ensureChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+        // targetSdk 34+ requires the service type to be passed to startForeground().
+        // ServiceCompat handles the version check: passes the type on API 34+,
+        // calls the two-arg form on older devices.
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            buildNotification(),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+        )
         if (server == null) {
             try {
                 val tokenManager = DriveTokenManager(this)
