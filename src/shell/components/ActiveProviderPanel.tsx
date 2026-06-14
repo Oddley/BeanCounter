@@ -166,7 +166,7 @@ function DrivePanel() {
           ✓ Android sync active — Drive credentials managed by the Bean Counter Sync app.
         </p>
       )}
-      {!sidecarActive && sidecarPref && (
+      {!sidecarActive && sidecarPref && syncState.status !== 'synced' && (
         <p className={styles.sidecarOffline}>
           Android Sync app is not running.{' '}
           <button
