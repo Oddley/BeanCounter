@@ -5,4 +5,4 @@ export type {
   BuildSeriesInput,
   AxisRange,
 } from './types'
-export { buildSeries, yAxisRange, xAxisRange } from './graph'
+export { buildSeries, rollingGainPerDay, yAxisRange, xAxisRange } from './graph'

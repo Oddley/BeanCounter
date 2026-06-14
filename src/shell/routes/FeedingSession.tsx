@@ -7,6 +7,8 @@ import {
   useOpenSessionForLitter,
   useLastCompletedSessionForLitter,
   useWeightEntriesForSession,
+  useAllSessions,
+  useAllWeightEntries,
   ensureOpenSessionForLitter,
   ensureOpenSessionWithRecordedAt,
   completeSessionById,
@@ -21,6 +23,7 @@ import {
 } from '../../core/session'
 import { type Kitten } from '../../core/kitten'
 import { validateGrams } from '../../core/weight'
+import { buildSeries, rollingGainPerDay } from '../../core/graph'
 import { isSameLocalDay } from '../../core/time'
 import { runSync } from '../sync'
 import styles from './FeedingSession.module.css'
@@ -60,6 +63,8 @@ function parseLocalDatetimeInputValue(value: string): number {
   return Number.isFinite(ms) ? ms : 0
 }
 
+const GAIN_WINDOW_MS = 72 * 60 * 60 * 1000
+
 export function FeedingSession() {
   const navigate = useNavigate()
   const { litterId = '' } = useParams<{ litterId: string }>()
@@ -69,8 +74,13 @@ export function FeedingSession() {
   const entries = useWeightEntriesForSession(openSession?.id ?? '')
   const prevSession = useLastCompletedSessionForLitter(litterId)
   const prevEntries = useWeightEntriesForSession(prevSession?.id ?? '')
+  const allSessions = useAllSessions()
+  const allEntries = useAllWeightEntries()
 
   const [now, setNow] = useState<number>(() => Date.now())
+  // Stable reference point for rolling gain — intentionally not ticking
+  // so the gain rate doesn't re-derive every second.
+  const gainRefNow = useMemo<number>(() => Date.now(), [])
   // Parent-owned weights state: source of truth for "what the user has
   // typed" (independent of Dexie roundtrip). Allows Submit's enabled
   // state to react instantly without waiting on a debounce-then-query.
@@ -88,6 +98,22 @@ export function FeedingSession() {
   // clobbering typed data when the session is created (and the live
   // query updates) before the weight entry write has landed in Dexie.
   const userHasTypedRef = useRef(false)
+
+  const kittenGainRates = useMemo<Record<string, number | null>>(() => {
+    if (!kittens || !allSessions || !allEntries) return {}
+    const cutoff = gainRefNow - GAIN_WINDOW_MS
+    const sessions72h = allSessions.filter(
+      (s) => s.litterId === litterId && s.completed && !s.deleted && effectiveRecordedAt(s) >= cutoff,
+    )
+    const sessionIds = new Set(sessions72h.map((s) => s.id))
+    const entries72h = allEntries.filter((e) => sessionIds.has(e.sessionId))
+    const series = buildSeries({ kittens, sessions: sessions72h, weightEntries: entries72h, mode: 'rough' })
+    const rates: Record<string, number | null> = {}
+    for (const s of series) {
+      rates[s.kittenId] = rollingGainPerDay(s.points, GAIN_WINDOW_MS, gainRefNow)
+    }
+    return rates
+  }, [kittens, allSessions, allEntries, litterId, gainRefNow])
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const timePickerRef = useRef<HTMLInputElement>(null)
@@ -359,6 +385,7 @@ export function FeedingSession() {
                   kitten={kitten}
                   value={weights[kitten.id] ?? ''}
                   {...(prevG !== undefined ? { previousGrams: prevG } : {})}
+                  gainPerDay={kittenGainRates[kitten.id] ?? null}
                   isLast={i === kittens.length - 1}
                   inputRef={(el) => {
                     inputRefs.current[i] = el
@@ -389,6 +416,7 @@ interface KittenWeightRowProps {
   readonly kitten: Kitten
   readonly value: string
   readonly previousGrams?: number
+  readonly gainPerDay: number | null
   readonly isLast: boolean
   readonly inputRef: (el: HTMLInputElement | null) => void
   readonly onChange: (text: string) => void
@@ -399,6 +427,7 @@ function KittenWeightRow({
   kitten,
   value,
   previousGrams,
+  gainPerDay,
   isLast,
   inputRef,
   onChange,
@@ -411,9 +440,16 @@ function KittenWeightRow({
     <li className={styles.row}>
       <div className={styles.rowName}>{kitten.displayName}</div>
       <div className={styles.rowInput}>
-        {previousGrams !== undefined && (
-          <span className={styles.prevWeight}>({previousGrams}g)</span>
-        )}
+        <div className={styles.prevBlock}>
+          {previousGrams !== undefined && (
+            <span className={styles.prevWeight}>({previousGrams}g)</span>
+          )}
+          {gainPerDay !== null && (
+            <span className={gainPerDay >= 0 ? styles.gainPositive : styles.gainNegative}>
+              {gainPerDay >= 0 ? '+' : ''}{Math.round(gainPerDay)}/d
+            </span>
+          )}
+        </div>
         <input
           ref={inputRef}
           type="text"

@@ -49,6 +49,7 @@ export function LitterGraph() {
   const allEntries = useAllWeightEntries()
 
   const [mode, setMode] = useState<GraphMode>('rough')
+  const [zoom, setZoom] = useState<'all' | '72h' | '24h'>('all')
   const [focusedKittenId, setFocusedKittenId] = useState<string | null>(
     () => searchParams.get('kitten'),
   )
@@ -69,13 +70,16 @@ export function LitterGraph() {
   // up here (before any early return) for the same hook-order reason
   // as `now` — placing it after the loading/not-found returns below
   // would call useMemo conditionally and trigger React error #310.
+  const zoomCutoff = zoom === 'all' ? 0 : now - (zoom === '72h' ? 72 : 24) * 3_600_000
+
   const sortedLitterSessions = useMemo(
     () =>
       (allSessions ?? [])
         .filter((s) => s.litterId === litterId)
+        .filter((s) => zoom === 'all' || effectiveRecordedAt(s) >= zoomCutoff)
         .slice()
         .sort((a, b) => effectiveRecordedAt(a) - effectiveRecordedAt(b)),
-    [allSessions, litterId],
+    [allSessions, litterId, zoom, zoomCutoff],
   )
 
   const loading =
@@ -93,7 +97,9 @@ export function LitterGraph() {
         yRange: { min: 0, max: 0 },
       }
     }
-    const sessions = (allSessions ?? []).filter((s) => s.litterId === litterId)
+    const sessions = (allSessions ?? [])
+      .filter((s) => s.litterId === litterId)
+      .filter((s) => zoom === 'all' || effectiveRecordedAt(s) >= zoomCutoff)
     const sessionIds = new Set(sessions.map((s) => s.id))
     const entries = (allEntries ?? []).filter((e) => sessionIds.has(e.sessionId))
     const kittens = activeKittens ?? []
@@ -128,6 +134,8 @@ export function LitterGraph() {
     litterId,
     mode,
     focusedKittenId,
+    zoom,
+    zoomCutoff,
   ])
 
   // Per-kitten grams for the selected session, forwarded to KittenLegend.
@@ -228,10 +236,18 @@ export function LitterGraph() {
     selectedSession !== undefined
       ? sortedLitterSessions.findIndex((s) => s.id === selectedSession.id)
       : -1
-  const canStepPrev = selectedIndex > 0
+  // When nothing is selected, ‹ jumps to the most recent entry so the user
+  // can tap once to anchor at the end, then step backwards. Closes #44.
+  const canStepPrev =
+    selectedIndex > 0 || (selectedIndex === -1 && sortedLitterSessions.length > 0)
   const canStepNext =
     selectedIndex >= 0 && selectedIndex < sortedLitterSessions.length - 1
   const stepPrev = () => {
+    if (selectedIndex === -1) {
+      const last = sortedLitterSessions[sortedLitterSessions.length - 1]
+      if (last) setSelectedSessionId(last.id)
+      return
+    }
     if (!canStepPrev) return
     const prev = sortedLitterSessions[selectedIndex - 1]
     if (prev) setSelectedSessionId(prev.id)
@@ -284,6 +300,21 @@ export function LitterGraph() {
               ›
             </Button>
           )}
+        </div>
+
+        <div className={styles.zoomBar} role="tablist" aria-label="Time range">
+          {(['24h', '72h', 'all'] as const).map((z) => (
+            <button
+              key={z}
+              type="button"
+              role="tab"
+              aria-selected={zoom === z}
+              className={`${styles.zoomOption} ${zoom === z ? styles.zoomSelected : ''}`}
+              onClick={() => setZoom(z)}
+            >
+              {z === 'all' ? 'All' : z}
+            </button>
+          ))}
         </div>
 
         <WeightChart

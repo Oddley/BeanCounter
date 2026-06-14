@@ -57,6 +57,22 @@ export function installGlobalErrorListeners(): void {
   })
 
   window.addEventListener('unhandledrejection', (event) => {
+    // Dynamic import failures happen when a stale index.html references
+    // a chunk hash that no longer exists after a deploy. A single reload
+    // fetches the new index.html with correct hashes. sessionStorage guards
+    // against an infinite reload loop if the error persists after reload.
+    if (
+      event.reason instanceof TypeError &&
+      typeof event.reason.message === 'string' &&
+      event.reason.message.startsWith('Failed to fetch dynamically imported module')
+    ) {
+      const KEY = 'beancounter:chunk-reload'
+      if (!sessionStorage.getItem(KEY)) {
+        sessionStorage.setItem(KEY, '1')
+        window.location.reload()
+        return
+      }
+    }
     setUnhandledError(
       event.reason instanceof Error
         ? event.reason

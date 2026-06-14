@@ -83,6 +83,26 @@ function smoothByDailyAverageWithInterpolation(
   return result
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+export function rollingGainPerDay(
+  points: readonly SeriesPoint[],
+  windowMs: number,
+  now: number,
+): number | null {
+  const cutoff = now - windowMs
+  const inWindow = points.filter((p) => p.time >= cutoff && p.time <= now)
+  if (inWindow.length < 2) return null
+
+  const n = inWindow.length
+  const xBar = inWindow.reduce((s, p) => s + p.time, 0) / n
+  const yBar = inWindow.reduce((s, p) => s + p.grams, 0) / n
+  const num = inWindow.reduce((s, p) => s + (p.time - xBar) * (p.grams - yBar), 0)
+  const den = inWindow.reduce((s, p) => s + (p.time - xBar) ** 2, 0)
+  if (den === 0) return null
+  return (num / den) * MS_PER_DAY
+}
+
 export function yAxisRange(seriesList: readonly KittenSeries[]): AxisRange {
   let min = Infinity
   let max = -Infinity

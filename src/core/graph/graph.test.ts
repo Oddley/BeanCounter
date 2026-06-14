@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildSeries,
+  rollingGainPerDay,
   yAxisRange,
   xAxisRange,
   type KittenSeries,
@@ -266,6 +267,81 @@ describe('yAxisRange', () => {
     const range = yAxisRange([s([[0, 100]]), s([[0, 50]]), s([[0, 200]])])
     expect(range.min).toBeLessThan(50)
     expect(range.max).toBeGreaterThan(200)
+  })
+})
+
+describe('rollingGainPerDay', () => {
+  const HOUR = 60 * 60 * 1000
+  const DAY = 24 * HOUR
+  const WINDOW = 72 * HOUR
+  const now = day(15) // May 15, 2026 at noon
+
+  it('returns null for empty points', () => {
+    expect(rollingGainPerDay([], WINDOW, now)).toBeNull()
+  })
+
+  it('returns null for a single point in the window', () => {
+    const points = [{ time: now - HOUR, grams: 100 }]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeNull()
+  })
+
+  it('returns null when all points are outside the window', () => {
+    const points = [
+      { time: now - 80 * HOUR, grams: 100 },
+      { time: now - 73 * HOUR, grams: 110 },
+    ]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeNull()
+  })
+
+  it('returns null when only one point is inside the window', () => {
+    const points = [
+      { time: now - 80 * HOUR, grams: 90 },
+      { time: now - HOUR, grams: 100 },
+    ]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeNull()
+  })
+
+  it('returns null when all in-window points share the same timestamp', () => {
+    const points = [
+      { time: now - HOUR, grams: 100 },
+      { time: now - HOUR, grams: 110 },
+    ]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeNull()
+  })
+
+  it('computes grams/day for two points spanning exactly one day', () => {
+    const points = [
+      { time: now - DAY, grams: 100 },
+      { time: now, grams: 110 },
+    ]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeCloseTo(10, 1)
+  })
+
+  it('returns a negative value for a losing kitten', () => {
+    const points = [
+      { time: now - DAY, grams: 120 },
+      { time: now, grams: 100 },
+    ]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeCloseTo(-20, 1)
+  })
+
+  it('excludes points older than the window', () => {
+    const points = [
+      { time: now - 80 * HOUR, grams: 0 }, // outside — must not skew result
+      { time: now - DAY, grams: 100 },
+      { time: now, grams: 110 },
+    ]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeCloseTo(10, 0)
+  })
+
+  it('uses linear regression across multiple in-window points', () => {
+    // Perfect linear trend: +10g/day at 0h, 24h, 48h
+    const points = [
+      { time: now - 2 * DAY, grams: 80 },
+      { time: now - DAY, grams: 90 },
+      { time: now, grams: 100 },
+    ]
+    expect(rollingGainPerDay(points, WINDOW, now)).toBeCloseTo(10, 1)
   })
 })
 
