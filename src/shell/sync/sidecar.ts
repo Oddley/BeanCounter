@@ -200,21 +200,27 @@ export async function sidecarWrite(options: {
 }
 
 /**
- * Attempts to wake the Android sidecar service via the `beancounter-sync://wake`
- * custom URI scheme. On Android, Chrome intercepts this navigation and dispatches
- * it to WakeActivity, which calls startForegroundService and immediately finishes —
- * no visible UI flash. No-op on non-Android or when the app is not installed.
+ * Attempts to wake the Android sidecar service by launching WakeActivity.
+ *
+ * Uses Chrome's `intent://` URL format rather than a bare custom scheme.
+ * Chrome in standalone PWA mode suppresses `a.click()` on unrecognised
+ * schemes without a user gesture, but explicitly handles `intent://` as an
+ * app-launch directive — no user gesture required, no chooser dialog (the
+ * package is explicit), and the PWA page stays open after Android handles it.
+ *
+ * No-op on non-Android or when the sidecar app is not installed.
  */
 export function tryWakeSidecar(): void {
   try {
     const a = document.createElement('a')
-    a.href = 'beancounter-sync://wake'
+    a.href =
+      'intent://wake#Intent;scheme=beancounter-sync;package=dev.oddley.beancounter.sync;end'
     a.style.display = 'none'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
   } catch {
-    // Non-Android platforms will simply not handle the URI — safe to ignore.
+    // Non-Android platforms will not handle the intent URL — safe to ignore.
   }
 }
 
