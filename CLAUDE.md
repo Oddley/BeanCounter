@@ -81,6 +81,10 @@ npx wrangler pages deploy dist --project-name bean-counter-branden-conley
 
 Cloudflare auto-deploys from the `main` branch. The `cloudflare/workers-autoconfig` branch is Cloudflare's auto-generated config branch — ignore it, the production branch is `main`.
 
+## GitHub Issues
+
+When triaging or addressing GitHub issues, **skip any issue or PR tagged `ClaudeIgnore`** — these are intentionally deferred and out of scope for Claude sessions.
+
 ## Key Invariants (these override everything else)
 
 1. Core functions are pure and tested. Shell functions are linear side-effect sequences, not tested.
