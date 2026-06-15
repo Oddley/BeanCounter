@@ -5,6 +5,8 @@ import {
   MAX_GRAMS,
 } from './types'
 
+const GRAMS_PER_OZ = 28.3495
+
 export function weightEntryId(sessionId: string, kittenId: string): string {
   return `${sessionId}:${kittenId}`
 }
@@ -24,6 +26,14 @@ export function createWeightEntry(input: {
     timestamp: input.timestamp,
     clientWriteId: input.clientWriteId,
   }
+}
+
+export function ouncesToGrams(oz: number): number {
+  return Math.round(oz * GRAMS_PER_OZ)
+}
+
+export function gramsToOunces(grams: number): number {
+  return grams / GRAMS_PER_OZ
 }
 
 export function validateGrams(grams: number): WeightValidationResult {

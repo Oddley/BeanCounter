@@ -3,6 +3,8 @@ import {
   weightEntryId,
   createWeightEntry,
   validateGrams,
+  ouncesToGrams,
+  gramsToOunces,
   NullWeightEntry,
   type WeightEntry,
 } from './index'
@@ -85,6 +87,61 @@ describe('validateGrams', () => {
   it('rejects Infinity', () => {
     expect(validateGrams(Infinity).valid).toBe(false)
     expect(validateGrams(-Infinity).valid).toBe(false)
+  })
+})
+
+describe('ouncesToGrams', () => {
+  it('converts 0 oz to 0 g', () => {
+    expect(ouncesToGrams(0)).toBe(0)
+  })
+
+  it('converts 1 oz to 28 g (rounded)', () => {
+    expect(ouncesToGrams(1)).toBe(28)
+  })
+
+  it('converts 3.5 oz to 99 g', () => {
+    expect(ouncesToGrams(3.5)).toBe(99)
+  })
+
+  it('converts 6 oz to 170 g', () => {
+    expect(ouncesToGrams(6)).toBe(170)
+  })
+
+  it('rounds to the nearest gram', () => {
+    // 0.5 oz = 14.17 g → 14
+    expect(ouncesToGrams(0.5)).toBe(14)
+  })
+
+  it('is deterministic — same input same output', () => {
+    expect(ouncesToGrams(3.5)).toBe(ouncesToGrams(3.5))
+  })
+})
+
+describe('gramsToOunces', () => {
+  it('converts 0 g to 0 oz', () => {
+    expect(gramsToOunces(0)).toBeCloseTo(0, 3)
+  })
+
+  it('converts 28 g to approx 0.988 oz', () => {
+    expect(gramsToOunces(28)).toBeCloseTo(0.988, 2)
+  })
+
+  it('converts 99 g to approx 3.492 oz', () => {
+    expect(gramsToOunces(99)).toBeCloseTo(3.492, 2)
+  })
+
+  it('converts 170 g to approx 5.997 oz', () => {
+    expect(gramsToOunces(170)).toBeCloseTo(5.997, 2)
+  })
+
+  it('returns a float (not an integer)', () => {
+    const result = gramsToOunces(99)
+    expect(result).not.toBe(Math.floor(result))
+  })
+
+  it('round-trips with ouncesToGrams within 1 gram', () => {
+    const original = 150
+    expect(Math.abs(ouncesToGrams(gramsToOunces(original)) - original)).toBeLessThanOrEqual(1)
   })
 })
 

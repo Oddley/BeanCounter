@@ -22,7 +22,7 @@ import {
   STALE_THRESHOLD_MS,
 } from '../../core/session'
 import { type Kitten } from '../../core/kitten'
-import { validateGrams } from '../../core/weight'
+import { validateGrams, ouncesToGrams, gramsToOunces } from '../../core/weight'
 import { buildSeries, rollingGainPerDay } from '../../core/graph'
 import { isSameLocalDay } from '../../core/time'
 import { runSync } from '../sync'
@@ -84,6 +84,7 @@ export function FeedingSession() {
   // Parent-owned weights state: source of truth for "what the user has
   // typed" (independent of Dexie roundtrip). Allows Submit's enabled
   // state to react instantly without waiting on a debounce-then-query.
+  const [unit, setUnit] = useState<'g' | 'oz'>('g')
   const [weights, setWeights] = useState<Record<string, string>>({})
   // Track which session we've hydrated from to avoid clobbering user
   // edits when entries re-flow from live query (e.g., after eager
@@ -169,7 +170,8 @@ export function FeedingSession() {
       void trackWrite(deleteWeightEntryById(sessionId, kittenId))
       return
     }
-    const grams = Number(sanitized)
+    const raw = Number(sanitized)
+    const grams = unit === 'oz' ? ouncesToGrams(raw) : raw
     if (!validateGrams(grams).valid) return
     const writeNow = Date.now()
     const work = async () => {
@@ -187,7 +189,14 @@ export function FeedingSession() {
   }
 
   const handleChange = (kittenId: string, raw: string) => {
-    const sanitized = raw.replace(/[^\d]/g, '')
+    let sanitized: string
+    if (unit === 'oz') {
+      const stripped = raw.replace(/[^\d.]/g, '')
+      const match = /^\d*\.?\d*/.exec(stripped)
+      sanitized = match ? match[0] : ''
+    } else {
+      sanitized = raw.replace(/[^\d]/g, '')
+    }
     userHasTypedRef.current = true
     setWeights((prev) => ({ ...prev, [kittenId]: sanitized }))
     persistWeight(kittenId, sanitized)
@@ -200,9 +209,11 @@ export function FeedingSession() {
     return kittens.every((k) => {
       const text = weights[k.id]
       if (text === undefined || text === '') return false
-      return validateGrams(Number(text)).valid
+      const raw = Number(text)
+      const grams = unit === 'oz' ? ouncesToGrams(raw) : raw
+      return validateGrams(grams).valid
     })
-  }, [kittens, weights])
+  }, [kittens, weights, unit])
 
   // "Stale" warning criterion (per user): session has data AND its
   // creation time is older than the threshold. Uses createdAt (not
@@ -370,6 +381,23 @@ export function FeedingSession() {
           </p>
         )}
 
+        <div className={styles.unitToggle} role="group" aria-label="Weight unit">
+          <button
+            type="button"
+            className={`${styles.unitOption} ${unit === 'g' ? styles.unitSelected : ''}`}
+            onClick={() => { setUnit('g') }}
+          >
+            g
+          </button>
+          <button
+            type="button"
+            className={`${styles.unitOption} ${unit === 'oz' ? styles.unitSelected : ''}`}
+            onClick={() => { setUnit('oz') }}
+          >
+            oz
+          </button>
+        </div>
+
         {kittens.length === 0 ? (
           <p className={styles.muted}>
             No active kittens in this litter. Add one before recording
@@ -383,6 +411,7 @@ export function FeedingSession() {
                 <KittenWeightRow
                   key={kitten.id}
                   kitten={kitten}
+                  unit={unit}
                   value={weights[kitten.id] ?? ''}
                   {...(prevG !== undefined ? { previousGrams: prevG } : {})}
                   gainPerDay={kittenGainRates[kitten.id] ?? null}
@@ -414,6 +443,7 @@ export function FeedingSession() {
 
 interface KittenWeightRowProps {
   readonly kitten: Kitten
+  readonly unit: 'g' | 'oz'
   readonly value: string
   readonly previousGrams?: number
   readonly gainPerDay: number | null
@@ -425,6 +455,7 @@ interface KittenWeightRowProps {
 
 function KittenWeightRow({
   kitten,
+  unit,
   value,
   previousGrams,
   gainPerDay,
@@ -433,27 +464,41 @@ function KittenWeightRow({
   onChange,
   onEnter,
 }: KittenWeightRowProps) {
-  const validation = value === '' ? null : validateGrams(Number(value))
+  const raw = Number(value)
+  const grams = value === '' ? NaN : (unit === 'oz' ? ouncesToGrams(raw) : raw)
+  const validation = value === '' ? null : validateGrams(grams)
   const showError = value !== '' && validation !== null && !validation.valid
+
+  const prevDisplay = previousGrams !== undefined
+    ? unit === 'oz'
+      ? `(${gramsToOunces(previousGrams).toFixed(1)}oz)`
+      : `(${previousGrams}g)`
+    : null
+
+  const gainDisplay = gainPerDay !== null
+    ? unit === 'oz'
+      ? `${gainPerDay >= 0 ? '+' : ''}${gramsToOunces(gainPerDay).toFixed(1)}/d`
+      : `${gainPerDay >= 0 ? '+' : ''}${Math.round(gainPerDay)}/d`
+    : null
 
   return (
     <li className={styles.row}>
       <div className={styles.rowName}>{kitten.displayName}</div>
       <div className={styles.rowInput}>
         <div className={styles.prevBlock}>
-          {previousGrams !== undefined && (
-            <span className={styles.prevWeight}>({previousGrams}g)</span>
+          {prevDisplay !== null && (
+            <span className={styles.prevWeight}>{prevDisplay}</span>
           )}
-          {gainPerDay !== null && (
+          {gainDisplay !== null && gainPerDay !== null && (
             <span className={gainPerDay >= 0 ? styles.gainPositive : styles.gainNegative}>
-              {gainPerDay >= 0 ? '+' : ''}{Math.round(gainPerDay)}/d
+              {gainDisplay}
             </span>
           )}
         </div>
         <input
           ref={inputRef}
           type="text"
-          inputMode="numeric"
+          inputMode={unit === 'oz' ? 'decimal' : 'numeric'}
           enterKeyHint={isLast ? 'done' : 'next'}
           value={value}
           onChange={(e) => {
@@ -467,9 +512,9 @@ function KittenWeightRow({
           }}
           placeholder="—"
           className={`${styles.input} ${showError ? styles.invalid : ''}`}
-          aria-label={`Weight in grams for ${kitten.displayName}`}
+          aria-label={`Weight in ${unit === 'oz' ? 'ounces' : 'grams'} for ${kitten.displayName}`}
         />
-        <span className={styles.unit}>g</span>
+        <span className={styles.unit}>{unit}</span>
       </div>
       {showError && (
         <div className={styles.errorLine} role="alert">
