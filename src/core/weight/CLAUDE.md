@@ -9,6 +9,8 @@ Weight entry domain: pure types and transformations for a single kitten's weight
 - `weightEntryId(sessionId, kittenId) → string` — deterministic composed id; same inputs always produce the same id
 - `createWeightEntry({ sessionId, kittenId, grams, timestamp, clientWriteId }) → WeightEntry` — produces a fresh entry with composed id
 - `validateGrams(grams) → { valid, errors[] }` — pure validation
+- `ouncesToGrams(oz) → number` — converts oz to whole grams via `Math.round(oz * 28.3495)`; no validation; use before calling `validateGrams` when oz input is active
+- `gramsToOunces(grams) → number` — converts grams to oz as a float; use for display only (not for storage)
 
 ## Dependencies
 
