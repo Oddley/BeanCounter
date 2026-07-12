@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts'
 import { type AxisRange, type KittenSeries } from '../../core/graph'
+import { gramsToOunces } from '../../core/weight'
 import { isSameLocalDay } from '../../core/time'
 import styles from './WeightChart.module.css'
 
@@ -34,6 +35,7 @@ export interface WeightChartProps {
   readonly seriesList: readonly KittenSeries[]
   readonly xRange: AxisRange
   readonly yRange: AxisRange
+  readonly unit: 'g' | 'oz'
   // Optional selection: when present, draws a vertical reference line
   // at this time (in ms) so the user has a clear "this feeding is
   // selected" cue across all kittens that persists after the touch
@@ -61,10 +63,6 @@ function formatTimeTick(millis: number, now: number): string {
   })
 }
 
-function formatGramsTick(grams: number): string {
-  return `${Math.round(grams)}g`
-}
-
 // Recharts passes these props to a Tooltip's `content` element.
 interface TooltipContentProps {
   readonly active?: boolean
@@ -77,6 +75,7 @@ interface TooltipContentProps {
 }
 
 interface TrackingTooltipProps extends TooltipContentProps {
+  readonly unit?: 'g' | 'oz'
   readonly onLabelChange?: (label: number) => void
 }
 
@@ -90,6 +89,7 @@ function TrackingTooltip({
   active,
   label,
   payload,
+  unit = 'g',
   onLabelChange,
 }: TrackingTooltipProps) {
   const millis =
@@ -129,10 +129,14 @@ function TrackingTooltip({
             : p.value !== undefined
               ? Number(p.value)
               : NaN
-        const grams = Number.isFinite(num) ? `${String(Math.round(num))}g` : '—'
+        const display = Number.isFinite(num)
+          ? unit === 'oz'
+            ? `${gramsToOunces(num).toFixed(1)}oz`
+            : `${String(Math.round(num))}g`
+          : '—'
         return (
           <div key={i} style={{ color: p.color ?? '#fff' }}>
-            {String(p.name ?? '')}: {grams}
+            {String(p.name ?? '')}: {display}
           </div>
         )
       })}
@@ -144,9 +148,13 @@ export function WeightChart({
   seriesList,
   xRange,
   yRange,
+  unit,
   selectedTime,
   onTimeChange,
 }: WeightChartProps) {
+  const formatWeightTick = unit === 'oz'
+    ? (grams: number) => `${gramsToOunces(grams).toFixed(1)}oz`
+    : (grams: number) => `${Math.round(grams)}g`
   const now = useMemo(() => Date.now(), [])
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -225,7 +233,7 @@ export function WeightChart({
           <YAxis
             type="number"
             domain={[yRange.min, yRange.max]}
-            tickFormatter={formatGramsTick}
+            tickFormatter={formatWeightTick}
             stroke="#a0a0a0"
             fontSize={12}
             width={48}
@@ -233,6 +241,7 @@ export function WeightChart({
           <Tooltip
             content={
               <TrackingTooltip
+                unit={unit}
                 {...(onTimeChange !== undefined
                   ? { onLabelChange: onTimeChange }
                   : {})}

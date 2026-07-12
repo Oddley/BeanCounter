@@ -1,4 +1,5 @@
 import { type KittenSeries } from '../../core/graph'
+import { gramsToOunces } from '../../core/weight'
 import { kittenColor } from './WeightChart'
 import styles from './KittenLegend.module.css'
 
@@ -6,6 +7,7 @@ export interface KittenLegendProps {
   readonly seriesList: readonly KittenSeries[]
   readonly focusedKittenId: string | null
   readonly onToggleFocus: (kittenId: string) => void
+  readonly unit?: 'g' | 'oz'
   // When a feeding is selected on the chart, shows each kitten's weight
   // for that session next to its name so the user can read values after
   // lifting their finger (Recharts' tooltip disappears on touch-end).
@@ -17,6 +19,7 @@ export function KittenLegend({
   seriesList,
   focusedKittenId,
   onToggleFocus,
+  unit = 'g',
   selectedWeights,
 }: KittenLegendProps) {
   if (seriesList.length === 0) return null
@@ -50,7 +53,9 @@ export function KittenLegend({
               {selectedWeights !== undefined &&
                 selectedWeights.has(s.kittenId) && (
                   <span className={styles.weight}>
-                    {Math.round(selectedWeights.get(s.kittenId) as number)}g
+                    {unit === 'oz'
+                      ? `${gramsToOunces(selectedWeights.get(s.kittenId) as number).toFixed(1)}oz`
+                      : `${Math.round(selectedWeights.get(s.kittenId) as number)}g`}
                   </span>
                 )}
               {s.points.length === 0 && (

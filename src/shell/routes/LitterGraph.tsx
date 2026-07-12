@@ -50,6 +50,7 @@ export function LitterGraph() {
 
   const [mode, setMode] = useState<GraphMode>('rough')
   const [zoom, setZoom] = useState<'all' | '72h' | '24h'>('all')
+  const [unit, setUnit] = useState<'g' | 'oz'>('g')
   const [focusedKittenId, setFocusedKittenId] = useState<string | null>(
     () => searchParams.get('kitten'),
   )
@@ -317,10 +318,24 @@ export function LitterGraph() {
           ))}
         </div>
 
+        <div className={styles.zoomBar} role="group" aria-label="Weight unit">
+          {(['g', 'oz'] as const).map((u) => (
+            <button
+              key={u}
+              type="button"
+              className={`${styles.zoomOption} ${unit === u ? styles.zoomSelected : ''}`}
+              onClick={() => setUnit(u)}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+
         <WeightChart
           seriesList={seriesForChart}
           xRange={xRange}
           yRange={yRange}
+          unit={unit}
           selectedTime={selectedTime}
           onTimeChange={handleTimeChange}
         />
@@ -329,6 +344,7 @@ export function LitterGraph() {
           seriesList={seriesAll}
           focusedKittenId={focusedKittenId}
           onToggleFocus={handleToggleFocus}
+          unit={unit}
           selectedWeights={selectedWeights}
         />
 
