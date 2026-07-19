@@ -12,6 +12,9 @@ export interface KittenSeries {
   readonly displayName: string
   readonly order: number
   readonly points: readonly SeriesPoint[]
+  // The kitten's raw color override ('' = none). Consumers resolve the
+  // actual plotted color via resolveSeriesColors, not this field directly.
+  readonly color: string
 }
 
 export type GraphMode = 'rough' | 'smooth'

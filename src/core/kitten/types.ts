@@ -5,6 +5,9 @@ export interface Kitten {
   readonly litterId: string
   readonly order: number
   readonly lastUpdatedAt: number
+  // '' means "no override — use the graph's default palette color".
+  // Non-empty is a '#rrggbb' hex string the user chose explicitly.
+  readonly color: string
 }
 
 export const NullKitten: Kitten = Object.freeze({
@@ -14,6 +17,7 @@ export const NullKitten: Kitten = Object.freeze({
   litterId: '',
   order: 0,
   lastUpdatedAt: 0,
+  color: '',
 })
 
 export interface KittenValidationResult {

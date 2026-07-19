@@ -1,10 +1,13 @@
 import { type KittenSeries } from '../../core/graph'
 import { gramsToOunces } from '../../core/weight'
-import { kittenColor } from './WeightChart'
 import styles from './KittenLegend.module.css'
+
+const FALLBACK_COLOR = '#f5b400'
 
 export interface KittenLegendProps {
   readonly seriesList: readonly KittenSeries[]
+  // Resolved plotted color per kittenId — see core/graph resolveSeriesColors.
+  readonly colors: ReadonlyMap<string, string>
   readonly focusedKittenId: string | null
   readonly onToggleFocus: (kittenId: string) => void
   readonly unit?: 'g' | 'oz'
@@ -17,6 +20,7 @@ export interface KittenLegendProps {
 
 export function KittenLegend({
   seriesList,
+  colors,
   focusedKittenId,
   onToggleFocus,
   unit = 'g',
@@ -46,7 +50,7 @@ export function KittenLegend({
             >
               <span
                 className={styles.swatch}
-                style={{ backgroundColor: kittenColor(s.order) }}
+                style={{ backgroundColor: colors.get(s.kittenId) ?? FALLBACK_COLOR }}
                 aria-hidden
               />
               <span className={styles.name}>{s.displayName}</span>

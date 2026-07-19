@@ -18,6 +18,7 @@ import {
   buildSeries,
   xAxisRange,
   yAxisRange,
+  resolveSeriesColors,
   type GraphMode,
 } from '../../core/graph'
 import { effectiveRecordedAt } from '../../core/session'
@@ -89,11 +90,12 @@ export function LitterGraph() {
     allSessions === undefined ||
     allEntries === undefined
 
-  const { seriesAll, seriesForChart, xRange, yRange } = useMemo(() => {
+  const { seriesAll, seriesForChart, colors, xRange, yRange } = useMemo(() => {
     if (loading || litter === undefined) {
       return {
         seriesAll: [],
         seriesForChart: [],
+        colors: new Map<string, string>(),
         xRange: { min: 0, max: 0 },
         yRange: { min: 0, max: 0 },
       }
@@ -123,6 +125,7 @@ export function LitterGraph() {
     return {
       seriesAll: all,
       seriesForChart: subset,
+      colors: resolveSeriesColors(all),
       xRange: xAxisRange(subset),
       yRange: yAxisRange(subset),
     }
@@ -333,6 +336,7 @@ export function LitterGraph() {
 
         <WeightChart
           seriesList={seriesForChart}
+          colors={colors}
           xRange={xRange}
           yRange={yRange}
           unit={unit}
@@ -342,6 +346,7 @@ export function LitterGraph() {
 
         <KittenLegend
           seriesList={seriesAll}
+          colors={colors}
           focusedKittenId={focusedKittenId}
           onToggleFocus={handleToggleFocus}
           unit={unit}

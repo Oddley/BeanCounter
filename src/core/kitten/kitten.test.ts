@@ -4,6 +4,9 @@ import {
   archiveKitten,
   activateKitten,
   renameKitten,
+  setKittenColor,
+  clearKittenColor,
+  validateKittenColor,
   validateKittenName,
   defaultKittenName,
   reassignOrders,
@@ -21,6 +24,7 @@ function k(id: string, order: number, active = true): Kitten {
     active,
     order,
     lastUpdatedAt: 0,
+    color: '',
   }
 }
 
@@ -40,6 +44,7 @@ describe('createKitten', () => {
       active: true,
       order: 0,
       lastUpdatedAt: 1000,
+      color: '',
     })
   })
 
@@ -172,6 +177,56 @@ describe('renameKitten', () => {
       now: 0,
     })
     expect(renameKitten(kitten, 'New', 100).litterId).toBe('L1')
+  })
+})
+
+describe('setKittenColor', () => {
+  it('sets the color and bumps lastUpdatedAt', () => {
+    const kitten = k('k1', 0)
+    const colored = setKittenColor(kitten, '#ff0000', 500)
+    expect(colored.color).toBe('#ff0000')
+    expect(colored.lastUpdatedAt).toBe(500)
+  })
+
+  it('does not mutate the input', () => {
+    const kitten = k('k1', 0)
+    setKittenColor(kitten, '#ff0000', 500)
+    expect(kitten.color).toBe('')
+  })
+})
+
+describe('clearKittenColor', () => {
+  it('resets color to empty string and bumps lastUpdatedAt', () => {
+    const kitten = setKittenColor(k('k1', 0), '#ff0000', 100)
+    const cleared = clearKittenColor(kitten, 200)
+    expect(cleared.color).toBe('')
+    expect(cleared.lastUpdatedAt).toBe(200)
+  })
+})
+
+describe('validateKittenColor', () => {
+  it('accepts an empty string (no override)', () => {
+    expect(validateKittenColor('').valid).toBe(true)
+  })
+
+  it('accepts a lowercase 6-digit hex color', () => {
+    expect(validateKittenColor('#ff8800').valid).toBe(true)
+  })
+
+  it('accepts an uppercase 6-digit hex color', () => {
+    expect(validateKittenColor('#FF8800').valid).toBe(true)
+  })
+
+  it('rejects a value missing the leading #', () => {
+    expect(validateKittenColor('ff8800').valid).toBe(false)
+  })
+
+  it('rejects a 3-digit shorthand hex value', () => {
+    expect(validateKittenColor('#f80').valid).toBe(false)
+  })
+
+  it('rejects a non-hex string', () => {
+    expect(validateKittenColor('red').valid).toBe(false)
   })
 })
 
@@ -315,6 +370,10 @@ describe('NullKitten', () => {
 
   it('has lastUpdatedAt of 0', () => {
     expect(NullKitten.lastUpdatedAt).toBe(0)
+  })
+
+  it('has no color override', () => {
+    expect(NullKitten.color).toBe('')
   })
 
   it('is consumable by Kitten functions (Liskov substitutability)', () => {

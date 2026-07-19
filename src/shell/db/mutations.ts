@@ -11,6 +11,8 @@ import {
   archiveKitten,
   activateKitten,
   renameKitten,
+  setKittenColor,
+  clearKittenColor,
   defaultKittenName,
   reassignOrders,
   type Kitten,
@@ -158,6 +160,23 @@ export async function renameKittenById(
   const found = (await db.kittens.get(id)) ?? NullKitten
   if (!found.id) return
   await db.kittens.put(renameKitten(found, newDisplayName, Date.now()))
+  markDirty()
+}
+
+export async function setKittenColorById(
+  id: string,
+  color: string,
+): Promise<void> {
+  const found = (await db.kittens.get(id)) ?? NullKitten
+  if (!found.id) return
+  await db.kittens.put(setKittenColor(found, color, Date.now()))
+  markDirty()
+}
+
+export async function clearKittenColorById(id: string): Promise<void> {
+  const found = (await db.kittens.get(id)) ?? NullKitten
+  if (!found.id) return
+  await db.kittens.put(clearKittenColor(found, Date.now()))
   markDirty()
 }
 

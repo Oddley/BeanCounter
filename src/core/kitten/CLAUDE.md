@@ -10,12 +10,15 @@ Kitten domain: pure types and transformations for an individual kitten within a 
 
 ## Outputs / Contract
 
-- `Kitten` interface — `{ id, displayName, active, litterId, order, lastUpdatedAt }`
+- `Kitten` interface — `{ id, displayName, active, litterId, order, lastUpdatedAt, color }`
 - `NullKitten` — Null Object substitutable wherever `Kitten` is expected (ADR-004)
-- `createKitten({ id, litterId, displayName, order, now }) → Kitten` — fresh active Kitten; `lastUpdatedAt = now`
+- `createKitten({ id, litterId, displayName, order, now }) → Kitten` — fresh active Kitten; `lastUpdatedAt = now`; `color = ''`
 - `archiveKitten(Kitten, now) → Kitten` — soft-delete; bumps `lastUpdatedAt`
 - `activateKitten(Kitten, now) → Kitten` — un-archives; bumps `lastUpdatedAt`
 - `renameKitten(Kitten, newDisplayName, now) → Kitten` — replaces display name; trims; bumps `lastUpdatedAt`
+- `setKittenColor(Kitten, color, now) → Kitten` — sets the color override; bumps `lastUpdatedAt`
+- `clearKittenColor(Kitten, now) → Kitten` — resets `color` to `''` (no override); bumps `lastUpdatedAt`
+- `validateKittenColor(color) → { valid, errors[] }` — pure validation; `''` is valid (no override), otherwise must match `#rrggbb`
 - `validateKittenName(name) → { valid, errors[] }` — pure validation
 - `defaultKittenName(index) → string` — produces "Kitten 1", "Kitten 2", …
 - `reassignOrders(orderedKittens[]) → Kitten[]` — given an array in desired order, returns new array with sequential `order` values 0..n-1
@@ -36,3 +39,4 @@ None at runtime. UUID generation happens upstream in shell.
 - `litterId` is set at creation and never changes via these functions (a kitten cannot move between litters in MVP)
 - `defaultKittenName(1)` returns `"Kitten 1"` (1-indexed for human friendliness)
 - `order` is a 0-indexed integer assigned by the caller; ordering semantics live in the caller (typically `shell/db`). After `reassignOrders`, the returned array has orders 0..n-1 matching array index. Within an active group, smaller order renders first.
+- `color === ''` means "no override — use the graph's default palette color" (see `core/graph` `resolveSeriesColors`). A non-empty `color` is always a validated `#rrggbb` hex string.

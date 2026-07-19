@@ -39,6 +39,7 @@ function buildKitten(id: string, ts: number): Kitten {
     active: true,
     lastUpdatedAt: ts,
     order: 0,
+    color: '',
   }
 }
 

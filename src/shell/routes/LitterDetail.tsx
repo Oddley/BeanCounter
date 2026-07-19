@@ -14,6 +14,8 @@ import {
   archiveKittenById,
   activateKittenById,
   renameKittenById,
+  setKittenColorById,
+  clearKittenColorById,
   setStickyLitterById,
   clearStickyLitterById,
   persistKittenOrder,
@@ -57,6 +59,7 @@ export function LitterDetail() {
   const [newKittenName, setNewKittenName] = useState('')
   const [renameKittenId, setRenameKittenId] = useState('')
   const [renameKittenDraft, setRenameKittenDraft] = useState('')
+  const [renameKittenColorDraft, setRenameKittenColorDraft] = useState('')
   const [reorderMode, setReorderMode] = useState(false)
 
   if (litter === undefined) {
@@ -107,17 +110,32 @@ export function LitterDetail() {
     setAddingKitten(false)
   }
 
-  const startRenameKitten = (kittenId: string, currentName: string) => {
+  const startRenameKitten = (
+    kittenId: string,
+    currentName: string,
+    currentColor: string,
+  ) => {
     setRenameKittenId(kittenId)
     setRenameKittenDraft(currentName)
+    setRenameKittenColorDraft(currentColor)
   }
 
   const submitRenameKitten = async () => {
     const validation = validateKittenName(renameKittenDraft)
     if (!validation.valid) return
-    await renameKittenById(renameKittenId, renameKittenDraft)
+    const id = renameKittenId
+    const original = activeKittens?.find((k) => k.id === id)
+    await renameKittenById(id, renameKittenDraft)
+    if (original !== undefined && original.color !== renameKittenColorDraft) {
+      if (renameKittenColorDraft === '') {
+        await clearKittenColorById(id)
+      } else {
+        await setKittenColorById(id, renameKittenColorDraft)
+      }
+    }
     setRenameKittenId('')
     setRenameKittenDraft('')
+    setRenameKittenColorDraft('')
   }
 
   const moveUp = async (index: number) => {
@@ -336,6 +354,33 @@ export function LitterDetail() {
                         onChange={(e) => setRenameKittenDraft(e.target.value)}
                         autoFocus
                       />
+                      <div className={styles.colorRow}>
+                        <span className={styles.colorRowLabel}>Color Override</span>
+                        <div className={styles.colorSwatchWrap}>
+                          <input
+                            type="color"
+                            className={styles.colorInput}
+                            value={renameKittenColorDraft || '#f5b400'}
+                            onChange={(e) =>
+                              setRenameKittenColorDraft(e.target.value)
+                            }
+                            aria-label="Color override"
+                          />
+                          {renameKittenColorDraft === '' && (
+                            <span className={styles.colorNoneIcon} aria-hidden>
+                              ⊘
+                            </span>
+                          )}
+                        </div>
+                        {renameKittenColorDraft !== '' && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => setRenameKittenColorDraft('')}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
                       <div className={styles.buttonRow}>
                         <Button onClick={submitRenameKitten}>Save</Button>
                         <Button
@@ -361,7 +406,7 @@ export function LitterDetail() {
                           <Button
                             variant="secondary"
                             onClick={() =>
-                              startRenameKitten(k.id, k.displayName)
+                              startRenameKitten(k.id, k.displayName, k.color)
                             }
                           >
                             Rename

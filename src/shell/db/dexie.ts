@@ -124,6 +124,20 @@ export class BeanCounterDB extends Dexie {
       })
       .upgrade(backfillSessionDeleted)
 
+    // v6 → v7: add `color: string` override field on kittens. '' means "no
+    // override — use the graph's default palette color" (see core/kitten,
+    // core/graph resolveSeriesColors).
+    this.version(7)
+      .stores({
+        litters: 'id',
+        kittens: 'id, litterId',
+        settings: 'id',
+        feedingSessions: 'id, litterId',
+        weightEntries: 'id, sessionId, kittenId',
+        conflicts: 'id, entityType',
+      })
+      .upgrade(backfillKittenColor)
+
     this.on('populate', () => {
       this.settings.add({ ...NullAppSettings, id: SETTINGS_SINGLETON_ID })
     })
@@ -201,9 +215,28 @@ async function backfillKittenOrder(tx: Transaction): Promise<void> {
         litterId: k.litterId,
         order: i,
         lastUpdatedAt: 0,
+        color: '',
       })
     }
   }
+  if (updated.length > 0) {
+    await tx.table('kittens').bulkPut(updated)
+  }
+}
+
+async function backfillKittenColor(tx: Transaction): Promise<void> {
+  const kittens = (await tx
+    .table('kittens')
+    .toArray()) as Array<Kitten & { color?: string }>
+  const updated: Kitten[] = kittens.map((k) => ({
+    id: k.id,
+    displayName: k.displayName,
+    active: k.active,
+    litterId: k.litterId,
+    order: k.order,
+    lastUpdatedAt: k.lastUpdatedAt,
+    color: k.color ?? '',
+  }))
   if (updated.length > 0) {
     await tx.table('kittens').bulkPut(updated)
   }

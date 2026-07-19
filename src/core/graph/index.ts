@@ -6,3 +6,4 @@ export type {
   AxisRange,
 } from './types'
 export { buildSeries, rollingGainPerDay, yAxisRange, xAxisRange } from './graph'
+export { KITTEN_COLOR_PALETTE, resolveSeriesColors } from './colors'

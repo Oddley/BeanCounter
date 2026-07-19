@@ -37,6 +37,7 @@ describe('snapshotToJson', () => {
           active: true,
           order: 0,
           lastUpdatedAt: 100,
+          color: '',
         },
       ],
       feedingSessions: [],
@@ -68,6 +69,7 @@ describe('parseActiveFile', () => {
           active: true,
           order: 0,
           lastUpdatedAt: 100,
+          color: '',
         },
       ],
       feedingSessions: [],
@@ -250,6 +252,7 @@ describe('parseActiveFile', () => {
           active: true,
           order: 0,
           lastUpdatedAt: 100,
+          color: '',
         },
       ],
       feedingSessions: [

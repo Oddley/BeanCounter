@@ -38,6 +38,8 @@ export {
   archiveKittenById,
   activateKittenById,
   renameKittenById,
+  setKittenColorById,
+  clearKittenColorById,
   setStickyLitterById,
   clearStickyLitterById,
   persistKittenOrder,

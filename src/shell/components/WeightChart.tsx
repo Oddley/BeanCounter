@@ -15,24 +15,15 @@ import { gramsToOunces } from '../../core/weight'
 import { isSameLocalDay } from '../../core/time'
 import styles from './WeightChart.module.css'
 
-const PALETTE = [
-  '#f5b400',
-  '#4ade80',
-  '#60a5fa',
-  '#f472b6',
-  '#a78bfa',
-  '#fb923c',
-  '#22d3ee',
-  '#facc15',
-]
-
-export function kittenColor(order: number): string {
-  if (order < 0) return PALETTE[0] ?? '#f5b400'
-  return PALETTE[order % PALETTE.length] ?? '#f5b400'
-}
+const FALLBACK_COLOR = '#f5b400'
 
 export interface WeightChartProps {
   readonly seriesList: readonly KittenSeries[]
+  // Resolved plotted color per kittenId — see core/graph resolveSeriesColors.
+  // Callers should resolve once against the full (unfiltered) series list so
+  // this chart and KittenLegend agree on the same colors even when
+  // seriesList itself is a focused subset.
+  readonly colors: ReadonlyMap<string, string>
   readonly xRange: AxisRange
   readonly yRange: AxisRange
   readonly unit: 'g' | 'oz'
@@ -146,6 +137,7 @@ function TrackingTooltip({
 
 export function WeightChart({
   seriesList,
+  colors,
   xRange,
   yRange,
   unit,
@@ -169,10 +161,10 @@ export function WeightChart({
           (p) => p.time === selectedTime,
         )
         return pt !== undefined
-          ? [{ kittenId: s.kittenId, color: kittenColor(s.order), y: pt.grams }]
+          ? [{ kittenId: s.kittenId, color: colors.get(s.kittenId) ?? FALLBACK_COLOR, y: pt.grams }]
           : []
       })
-  }, [seriesList, selectedTime])
+  }, [seriesList, colors, selectedTime])
 
   const hasAnyPoints = seriesList.some((s) => s.points.length > 0)
 
@@ -282,7 +274,7 @@ export function WeightChart({
                 data={s.points as Array<{ time: number; grams: number }>}
                 dataKey="grams"
                 name={s.displayName}
-                stroke={kittenColor(s.order)}
+                stroke={colors.get(s.kittenId) ?? FALLBACK_COLOR}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5 }}

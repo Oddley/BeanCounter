@@ -28,6 +28,7 @@ export function buildSeries(input: BuildSeriesInput): KittenSeries[] {
       displayName: kitten.displayName,
       order: kitten.order,
       points,
+      color: kitten.color,
     }
   })
 }

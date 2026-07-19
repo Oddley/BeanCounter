@@ -5,11 +5,13 @@ Pure series construction for the weight visualization. Joins kittens × sessions
 ## Outputs / Contract
 
 - `SeriesPoint` — `{ time, grams }` (millis, grams)
-- `KittenSeries` — `{ kittenId, displayName, order, points }` — one per kitten the consumer asked about
+- `KittenSeries` — `{ kittenId, displayName, order, points, color }` — one per kitten the consumer asked about; `color` is the kitten's raw override (`''` if none)
 - `GraphMode` — `'rough' | 'smooth'`
 - `buildSeries({ kittens, sessions, weightEntries, mode }) → KittenSeries[]` — main entry point
 - `yAxisRange(series) → { min, max }` — padded range across all points; non-zero-based per MVP spec
 - `xAxisRange(series) → { min, max }` — time range across all points; no padding
+- `KITTEN_COLOR_PALETTE` — the 8-color default palette, in assignment order
+- `resolveSeriesColors(seriesList) → ReadonlyMap<kittenId, color>` — the plotted color per kitten. An explicit override always wins; a kitten with no override gets the next palette color not already claimed by an earlier series in the list (by override or by an earlier default assignment). Single left-to-right pass — call it once per full, order-preserving series list (e.g. `seriesAll`, not a focused subset) so every consumer (chart, legend) agrees on the same colors.
 
 ## Inputs
 

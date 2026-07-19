@@ -4,13 +4,20 @@ import {
   rollingGainPerDay,
   yAxisRange,
   xAxisRange,
+  resolveSeriesColors,
+  KITTEN_COLOR_PALETTE,
   type KittenSeries,
 } from './index'
 import { type Kitten } from '../kitten'
 import { type FeedingSession } from '../session'
 import { type WeightEntry } from '../weight'
 
-function kitten(id: string, displayName: string, order: number): Kitten {
+function kitten(
+  id: string,
+  displayName: string,
+  order: number,
+  color = '',
+): Kitten {
   return {
     id,
     displayName,
@@ -18,6 +25,7 @@ function kitten(id: string, displayName: string, order: number): Kitten {
     litterId: 'L1',
     order,
     lastUpdatedAt: 0,
+    color,
   }
 }
 
@@ -77,8 +85,18 @@ describe('buildSeries — empty inputs', () => {
       mode: 'rough',
     })
     expect(result).toEqual([
-      { kittenId: 'k1', displayName: 'A', order: 0, points: [] },
+      { kittenId: 'k1', displayName: 'A', order: 0, points: [], color: '' },
     ])
+  })
+
+  it('propagates the kitten color override', () => {
+    const result = buildSeries({
+      kittens: [kitten('k1', 'A', 0, '#ff0000')],
+      sessions: [],
+      weightEntries: [],
+      mode: 'rough',
+    })
+    expect(result[0]?.color).toBe('#ff0000')
   })
 })
 
@@ -235,6 +253,7 @@ describe('yAxisRange', () => {
       displayName: 'A',
       order: 0,
       points: points.map(([time, grams]) => ({ time, grams })),
+      color: '',
     }
   }
 
@@ -352,6 +371,7 @@ describe('xAxisRange', () => {
       displayName: 'A',
       order: 0,
       points: points.map(([time, grams]) => ({ time, grams })),
+      color: '',
     }
   }
 
@@ -372,5 +392,68 @@ describe('xAxisRange', () => {
     ])
     expect(range.min).toBe(day(1))
     expect(range.max).toBe(day(10))
+  })
+})
+
+describe('resolveSeriesColors', () => {
+  function series(
+    kittenId: string,
+    order: number,
+    color = '',
+  ): KittenSeries {
+    return { kittenId, displayName: kittenId, order, points: [], color }
+  }
+
+  it('returns an empty map for an empty series list', () => {
+    expect(resolveSeriesColors([]).size).toBe(0)
+  })
+
+  it('assigns palette colors in order to kittens with no override', () => {
+    const result = resolveSeriesColors([series('a', 0), series('b', 1)])
+    expect(result.get('a')).toBe(KITTEN_COLOR_PALETTE[0])
+    expect(result.get('b')).toBe(KITTEN_COLOR_PALETTE[1])
+  })
+
+  it('uses the explicit override for a kitten that has one', () => {
+    const result = resolveSeriesColors([series('a', 0, '#123456')])
+    expect(result.get('a')).toBe('#123456')
+  })
+
+  it('skips a palette color already claimed by an earlier override', () => {
+    // 'a' overrides to exactly the palette's first color; 'b' (no
+    // override) should get the second palette color instead of colliding.
+    const result = resolveSeriesColors([
+      series('a', 0, KITTEN_COLOR_PALETTE[0]),
+      series('b', 1),
+    ])
+    expect(result.get('a')).toBe(KITTEN_COLOR_PALETTE[0])
+    expect(result.get('b')).toBe(KITTEN_COLOR_PALETTE[1])
+  })
+
+  it('does not let an override change the default sequence for earlier kittens', () => {
+    // 'b' overrides to what would have been 'a's default (palette[0]).
+    // Since 'a' is resolved first (left-to-right), it still gets
+    // palette[0] — the collision is an accepted edge case, not a bug.
+    const result = resolveSeriesColors([
+      series('a', 0),
+      series('b', 1, KITTEN_COLOR_PALETTE[0]),
+    ])
+    expect(result.get('a')).toBe(KITTEN_COLOR_PALETTE[0])
+    expect(result.get('b')).toBe(KITTEN_COLOR_PALETTE[0])
+  })
+
+  it('wraps around and reuses palette colors once every default kitten has one', () => {
+    const kittens = Array.from({ length: KITTEN_COLOR_PALETTE.length + 1 }, (_, i) =>
+      series(`k${String(i)}`, i),
+    )
+    const result = resolveSeriesColors(kittens)
+    expect(result.get('k0')).toBe(result.get(`k${String(KITTEN_COLOR_PALETTE.length)}`))
+  })
+
+  it('maps every kittenId in the input', () => {
+    const result = resolveSeriesColors([series('a', 0), series('b', 1, '#abcdef')])
+    expect(result.size).toBe(2)
+    expect(result.has('a')).toBe(true)
+    expect(result.has('b')).toBe(true)
   })
 })

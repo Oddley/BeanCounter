@@ -18,6 +18,7 @@ export function createKitten(input: {
     active: true,
     order: input.order,
     lastUpdatedAt: input.now,
+    color: '',
   }
 }
 
@@ -39,6 +40,33 @@ export function renameKitten(
     displayName: newDisplayName.trim(),
     lastUpdatedAt: now,
   }
+}
+
+// User-set color override. Bumps lastUpdatedAt so the change syncs.
+export function setKittenColor(
+  kitten: Kitten,
+  color: string,
+  now: number,
+): Kitten {
+  return { ...kitten, color, lastUpdatedAt: now }
+}
+
+// Reverts to '' — "no override, use the graph's default palette color".
+export function clearKittenColor(kitten: Kitten, now: number): Kitten {
+  return { ...kitten, color: '', lastUpdatedAt: now }
+}
+
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/
+
+export function validateKittenColor(color: string): KittenValidationResult {
+  const errors: string[] = []
+  if (color !== '' && !HEX_COLOR_PATTERN.test(color)) {
+    errors.push('Color must be a "#rrggbb" hex value')
+  }
+  return Object.freeze({
+    valid: errors.length === 0,
+    errors: Object.freeze(errors),
+  })
 }
 
 export function validateKittenName(name: string): KittenValidationResult {

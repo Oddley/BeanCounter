@@ -30,6 +30,8 @@ Boolean fields (`active`, `completed`) are not indexed — IndexedDB has flaky c
 - **v2 → v3**: Add `feedingSessions` and `weightEntries` tables. No data migration needed — both tables start empty.
 - **v3 → v4**: Add `recordedAt: number` field to existing `feedingSessions` rows. Default `0` (= "no user override; fall back to createdAt").
 - **v4 → v5**: Add `conflicts` table. Starts empty; no data migration needed. Holds one record per entity-level conflict detected during sync until the user resolves it via the `/conflicts` route (see ADR-007 multi-user follow-up).
+- **v5 → v6**: Backfill `deleted: boolean` tombstone field on existing `feedingSessions` rows. Default `false`.
+- **v6 → v7**: Backfill `color: string` field on existing `kittens` rows. Default `''` (= "no override; use the graph's default palette color").
 
 Migrations are idempotent and side-effect-free on already-current data.
 
