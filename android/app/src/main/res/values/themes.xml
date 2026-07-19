@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.BeanCounterSync" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- WakeActivity: never visible, just starts the service and finishes. -->
+    <style name="Theme.Transparent" parent="android:Theme.Translucent.NoTitleBar" />
 </resources>

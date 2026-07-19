@@ -26,6 +26,7 @@ class LocalHttpServer(
     private val context: Context,
     private val driveClient: DriveApiClient,
     private val tokenManager: DriveTokenManager,
+    private val onRequest: () -> Unit = {},
 ) : NanoHTTPD("127.0.0.1", PORT) {
 
     companion object {
@@ -37,6 +38,7 @@ class LocalHttpServer(
     private val prefs get() = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     override fun serve(session: IHTTPSession): Response = try {
+        onRequest()
         when {
             session.method == Method.OPTIONS                               -> cors()
             session.method == Method.GET  && session.uri == "/ping"       -> handlePing()

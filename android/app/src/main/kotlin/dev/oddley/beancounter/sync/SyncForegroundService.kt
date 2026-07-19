@@ -8,17 +8,27 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
 /**
- * Foreground service that keeps the [LocalHttpServer] running while the device is on.
+ * Foreground service that runs the [LocalHttpServer] for the duration of a sync burst.
  *
  * Lifecycle:
- *   - Started from [MainActivity] after sign-in, and from [BootReceiver] after reboot.
- *   - [START_STICKY]: Android restarts it automatically if it's killed by the OS.
- *   - The server listens on localhost:7734; the PWA pings this on every sync attempt.
+ *   - Started from [MainActivity] after sign-in, from [BootReceiver] after reboot, and
+ *     from [WakeActivity] whenever the PWA needs the sidecar and finds it not running.
+ *   - Self-stops after [IDLE_TIMEOUT_MS] of no HTTP requests — this is a bursty,
+ *     around-sync-events service, not a 24/7 one, so it never approaches the
+ *     6-hour cumulative runtime cap Android 15+ enforces on the `dataSync`
+ *     foreground service type. That cap is what previously caused the OS to kill
+ *     this service with an ANR-style "did not stop within its timeout" crash.
+ *   - [START_NOT_STICKY]: the OS should not auto-restart this after it self-stops
+ *     or is killed; the PWA re-wakes it on demand via `beancounter-sync://wake`.
  *
  * Notification:
  *   - Required to stay alive as a foreground service (Android 8+).
@@ -28,10 +38,17 @@ import androidx.core.app.ServiceCompat
 class SyncForegroundService : Service() {
 
     private var server: LocalHttpServer? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val idleTimeout = Runnable { stopSelf() }
 
     companion object {
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "beancounter_sync_v1"
+
+        // Comfortably covers a full sync burst (a handful of requests over a
+        // few seconds) with margin for a slow Drive round trip, while keeping
+        // total runtime far below the OS's 6-hour dataSync cap.
+        private const val IDLE_TIMEOUT_MS = 120_000L
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, SyncForegroundService::class.java))
@@ -56,17 +73,36 @@ class SyncForegroundService : Service() {
         if (server == null) {
             try {
                 val tokenManager = DriveTokenManager(this)
-                server = LocalHttpServer(this, DriveApiClient(tokenManager), tokenManager).apply {
-                    start()
-                }
+                server = LocalHttpServer(
+                    this,
+                    DriveApiClient(tokenManager),
+                    tokenManager,
+                    onRequest = ::resetIdleTimeout,
+                ).apply { start() }
             } catch (e: Exception) {
                 stopSelf()
+                return START_NOT_STICKY
             }
         }
-        return START_STICKY
+        resetIdleTimeout()
+        return START_NOT_STICKY
+    }
+
+    private fun resetIdleTimeout() {
+        handler.removeCallbacks(idleTimeout)
+        handler.postDelayed(idleTimeout, IDLE_TIMEOUT_MS)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        // Defensive safety net: if the OS ever considers this service to have
+        // exceeded its dataSync runtime budget, stop cleanly instead of letting
+        // the system throw and crash the process.
+        stopSelf()
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(idleTimeout)
         server?.stop()
         server = null
         super.onDestroy()

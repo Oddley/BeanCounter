@@ -137,7 +137,7 @@ private fun SetupScreen(
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                text  = "The sync service is running on port 7734. You can close this app — it will keep syncing in the background and restart automatically on reboot.",
+                text  = "You can close this app. Bean Counter will wake the sync service briefly whenever it needs to sync, then it shuts itself down again.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
