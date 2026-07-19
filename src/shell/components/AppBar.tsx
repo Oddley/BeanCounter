@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useNavDepth } from '../app/NavDepthProvider'
-import { SyncIndicator } from './SyncIndicator'
+import { SyncButton } from './SyncButton'
+import { SettingsButton } from './SettingsButton'
 import styles from './AppBar.module.css'
 
 export interface AppBarProps {
@@ -50,7 +51,8 @@ export function AppBar({ title, backTo, onBack }: AppBarProps) {
       </div>
       <h1 className={styles.title}>{title}</h1>
       <div className={styles.right}>
-        <SyncIndicator />
+        <SyncButton />
+        <SettingsButton />
       </div>
     </header>
   )

@@ -1,22 +1,26 @@
-.indicator {
+.button {
   display: flex;
   align-items: center;
   justify-content: center;
   width: var(--touch-target-min);
   height: var(--touch-target-min);
   border-radius: var(--radius);
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
   text-decoration: none;
   font-size: 1.3rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.indicator:active {
+.button:active {
   background: var(--color-border);
 }
 
-.offline {
-  color: var(--color-fg-muted);
+.button:disabled {
+  cursor: default;
 }
 
 .synced {

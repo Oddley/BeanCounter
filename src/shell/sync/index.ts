@@ -38,6 +38,8 @@ export {
   type RunSyncOptions,
 } from './orchestrator'
 
+export { triggerManualSync } from './actions'
+
 export {
   markDirty,
   clearDirty,

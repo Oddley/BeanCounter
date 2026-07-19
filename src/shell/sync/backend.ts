@@ -37,7 +37,7 @@ export type BackendKind = 'offline' | 'drive' | 'firebase'
 export interface SyncBackend {
   readonly kind: BackendKind
 
-  // Human-readable name shown in SyncIndicator and settings panels.
+  // Human-readable name shown in SyncButton and settings panels.
   // Empty string for the offline backend (indicator shows nothing).
   readonly displayName: string
 

@@ -53,6 +53,10 @@ async function sidecarFetch(
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+// Last result of isSidecarAvailable(), so a click handler can decide
+// synchronously (no await) whether waking the sidecar is worth attempting.
+let lastKnownAvailable = false
+
 /**
  * Returns true if the Android sidecar service is reachable on localhost:7734.
  * Fast-fails (1.5 s timeout) so the caller can decide quickly whether to use
@@ -61,8 +65,10 @@ async function sidecarFetch(
 export async function isSidecarAvailable(): Promise<boolean> {
   try {
     const res = await sidecarFetch('/ping', undefined, PING_TIMEOUT_MS)
+    lastKnownAvailable = res.ok
     return res.ok
   } catch {
+    lastKnownAvailable = false
     return false
   }
 }
@@ -221,6 +227,20 @@ export function tryWakeSidecar(): void {
     document.body.removeChild(a)
   } catch {
     // Non-Android platforms will not handle the intent URL — safe to ignore.
+  }
+}
+
+/**
+ * Fires the wake intent if the sidecar is preferred and was last seen down —
+ * synchronously, with no `await` beforehand. Chrome only skips its "Open in
+ * app?" confirmation when a `beancounter-sync://` launch is directly
+ * gesture-initiated; awaiting even a fast /ping first is enough to lose that
+ * gesture credit. Call this as the very first line of a click handler, before
+ * any async work (including runSync, which re-checks and waits on its own).
+ */
+export function wakeSidecarIfNeeded(): void {
+  if (getSidecarPreferred() && !lastKnownAvailable) {
+    tryWakeSidecar()
   }
 }
 

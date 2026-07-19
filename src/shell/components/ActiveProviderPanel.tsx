@@ -5,7 +5,7 @@ import {
   useSyncState,
   useActiveBackendKind,
   setActiveBackend,
-  runSync,
+  triggerManualSync,
 } from '../sync'
 import {
   clearStoredFolder,
@@ -119,7 +119,7 @@ function DrivePanel() {
   }
 
   const handleSyncNow = () => {
-    void runSync({ allowInteractive: true })
+    triggerManualSync()
   }
 
   const handleDisconnect = () => {
@@ -257,7 +257,7 @@ function FirebasePanel() {
   const projectId = config?.projectId ?? ''
 
   const handleSyncNow = () => {
-    void runSync({ allowInteractive: true })
+    triggerManualSync()
   }
 
   const handleDisconnect = async () => {

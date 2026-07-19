@@ -44,9 +44,17 @@ export function createDriveBackend(): SyncBackend {
       const folderId = getStoredFolderId()
       if (folderId === null) return { kind: 'empty' }
 
-      // Sidecar wake + retry (moved from orchestrator).
+      // Sidecar wake + retry — only attempted when this run was fired from a
+      // direct user gesture (options.allowInteractive). Silent boot/nav syncs
+      // have no gesture to spend, so a beancounter-sync:// launch there would
+      // always trigger Chrome's "Open in app?" confirmation; they instead just
+      // use the sidecar if it happens to already be running (ping below) and
+      // fall through to the token-based path otherwise. The wake itself is
+      // fired synchronously by the caller (see sidecar.ts wakeSidecarIfNeeded)
+      // so the gesture is still fresh; tryWakeSidecar() here is a harmless,
+      // idempotent backstop in case that didn't happen.
       let useSidecar = await isSidecarAvailable()
-      if (!useSidecar && getSidecarPreferred()) {
+      if (!useSidecar && getSidecarPreferred() && options?.allowInteractive === true) {
         tryWakeSidecar()
         for (let i = 0; i < 3; i++) {
           await new Promise<void>((r) => setTimeout(r, 1500))
